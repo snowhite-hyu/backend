@@ -55,7 +55,7 @@ jobs:
           echo "${{ secrets.MYSQL_ENV }}" > mysql.env
 
       - name: Build Docker Image
-        run: docker build -t lheesoo1020/snowhite:latest .
+        run: docker buildx build --platform linux/arm64 -t lheesoo1020/snowhite:latest .
 
       - name: Docker Login
         run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
