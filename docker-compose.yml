@@ -1,0 +1,41 @@
+services:
+  mysql:
+    image: mysql:9.1.0
+    container_name: "mysql-container"
+    env_file:
+      - mysql.env
+    networks:
+      - saboteur-network
+    volumes:
+      - saboteur-db:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  redis:
+    image: redis:7.4.2
+    container_name: "redis-container"
+    networks:
+      - saboteur-network
+    ports:
+      - "6379:6379"
+
+  saboteur:
+    image: snowhite:latest
+    container_name: "saboteur-container"
+    env_file:
+      - .env
+    networks:
+      - saboteur-network
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8080:8080"
+
+networks:
+  saboteur-network:
+    external: true
+
+volumes:
+  saboteur-db:
+    external: true
