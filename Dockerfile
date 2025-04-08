@@ -8,7 +8,7 @@ WORKDIR /app
 ARG JAR_PATH=build/libs
 
 # 빌드 파일 복사
-COPY ${JAR_PATH}/*.jar saboteur.jar
+COPY ${JAR_PATH}/*.jar snowhite.jar
 
 # 실행
-ENTRYPOINT ["java", "-jar", "saboteur.jar"]
+ENTRYPOINT ["java", "-jar", "snowhite.jar"]
