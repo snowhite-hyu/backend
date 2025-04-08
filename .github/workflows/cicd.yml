@@ -79,6 +79,7 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            systemctl --user start podman
             cd ${{ secrets.SERVER_PROJECT_PATH }}
             echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
             docker compose down
