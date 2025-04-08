@@ -1,0 +1,87 @@
+name: Dev CI/CD
+
+on:
+  push:
+    branches: [ "develop" ]
+
+jobs:
+  dev-integration:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Grant permission for gradlew
+      run: chmod +x ./gradlew
+
+    - name: Build with Gradle Wrapper
+      run: ./gradlew clean build -x test
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: snowhite
+        path: build/libs/*.jar
+        retention-days: 1
+
+  dev-deployment:
+    needs: dev-integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: snowhite
+
+      - name: Move Artifact
+        run: |
+          mkdir -p build/libs/
+          mv *.jar build/libs/
+
+      - name: Generate .env
+        run: |
+          echo "${{ secrets.ENV }}" > .env
+          echo "${{ secrets.MYSQL_ENV }}" > mysql.env
+
+      - name: Build Docker Image
+        run: docker build -t lheesoo1020/snowhite:latest .
+
+      - name: Docker Login
+        run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
+
+      - name: Push Docker Image
+        run: docker push lheesoo1020/snowhite:latest
+
+      - name: Copy file to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: ".env,mysql.env,docker-compose.yml"
+          target: ${{ secrets.SERVER_PROJECT_PATH }}
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ${{ secrets.SERVER_PROJECT_PATH }}
+            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
+            docker compose down
+            docker pull lheesoo1020/snowhite:latest
+            docker tag lheesoo1020/snowhite:latest snowhite:latest
+            docker compose up -d
