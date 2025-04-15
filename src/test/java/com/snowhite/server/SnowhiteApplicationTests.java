@@ -1,10 +1,10 @@
-package com.snowhite.saboteur;
+package com.snowhite.server;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class SaboteurApplicationTests {
+class SnowhiteApplicationTests {
 
 	@Test
 	void contextLoads() {
