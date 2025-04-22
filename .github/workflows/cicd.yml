@@ -5,35 +5,7 @@ on:
     branches: [ "develop" ]
 
 jobs:
-  dev-integration:
-
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-
-    - name: Grant permission for gradlew
-      run: chmod +x ./gradlew
-
-    - name: Build with Gradle Wrapper
-      run: ./gradlew clean build -x test
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: snowhite
-        path: build/libs/*.jar
-        retention-days: 1
-
   dev-deployment:
-    needs: dev-integration
     runs-on: ubuntu-latest
 
     steps:
@@ -53,36 +25,18 @@ jobs:
         run: |
           echo "${{ secrets.ENV }}" > .env
           echo "${{ secrets.MYSQL_ENV }}" > mysql.env
-
-      - name: Build Docker Image
-        run: docker buildx build --platform linux/arm64 -t lheesoo1020/snowhite:latest .
+      
+      - name: Docker update
+        run: sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io
 
       - name: Docker Login
-        run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
+        run: echo "${{ secrets.GITLAB_PASSWORD }}" | docker login registry.ryuuga.duckdns.org -u "${{ secrets.GITLAB_USERNAME }}" --password-stdin
+
+      - name: Build Docker Image
+        run: docker buildx build --load --platform linux/arm64 -t snowhite/backend:latest .
+
+      - name: Tag Docker Image
+        run: docker image tag snowhite/backend:latest registry.ryuuga.duckdns.org/snowhite/backend:latest
 
       - name: Push Docker Image
-        run: docker push lheesoo1020/snowhite:latest
-
-      - name: Copy file to Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: ".env,mysql.env,docker-compose.yml"
-          target: ${{ secrets.SERVER_PROJECT_PATH }}
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            systemctl --user start podman
-            cd ${{ secrets.SERVER_PROJECT_PATH }}
-            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u lheesoo1020 --password-stdin
-            docker compose down
-            docker pull lheesoo1020/snowhite:latest
-            docker tag lheesoo1020/snowhite:latest snowhite:latest
-            docker compose up -d
+        run: docker push registry.ryuuga.duckdns.org/snowhite/backend:latest
