@@ -12,38 +12,10 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.server.ServerWebExchange;
-
-import java.util.Map;
 
 @RestControllerAdvice(annotations = RestController.class)
 public class ExceptionAdvice {
-
-//    @ExceptionHandler
-//    public ResponseEntity<Object> validation(ConstraintViolationException e, WebRequest request) {
-//        String errorMessage = e.getConstraintViolations().stream()
-//                .map(ConstraintViolation::getMessage)
-//                .findFirst()
-//                .orElseThrow(() -> new RuntimeException("ConstraintViolationException 추출 도중 에러 발생"));
-//
-//        return handleExceptionInternalConstraint(e, ErrorStatus.valueOf(errorMessage), HttpHeaders.EMPTY,request);
-//    }
-
-//    @Override
-//    public ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-//
-//        Map<String, String> errors = new LinkedHashMap<>();
-//
-//        e.getBindingResult().getFieldErrors().stream()
-//                .forEach(fieldError -> {
-//                    String fieldName = fieldError.getField();
-//                    String errorMessage = Optional.ofNullable(fieldError.getDefaultMessage()).orElse("");
-//                    errors.merge(fieldName, errorMessage, (existingErrorMessage, newErrorMessage) -> existingErrorMessage + ", " + newErrorMessage);
-//                });
-//
-//        return handleExceptionInternalArgs(e, HttpHeaders.EMPTY, ErrorStatus._BAD_REQUEST, request, errors);
-//    }
 
     @ExceptionHandler
     public ResponseEntity<Object> exception(Exception e, ServerWebExchange request) {
@@ -90,31 +62,6 @@ public class ExceptionAdvice {
 
         return createResponseEntity(body, HttpHeaders.EMPTY, status);
     }
-
-//    // 예외 code, message, errorArgs
-//    private ResponseEntity<Object> handleExceptionInternalArgs(Exception e, HttpHeaders headers, ErrorStatus errorStatus,
-//                                                               WebRequest request, Map<String, String> errorArgs) {
-//        ApiResponse<Object> body = ApiResponse.onFailure(errorStatus.getCode(),errorStatus.getMessage(), errorArgs);
-//        return super.handleExceptionInternal(
-//                e,
-//                body,
-//                headers,
-//                errorStatus.getHttpStatus(),
-//                request
-//        );
-//    }
-//
-//    private ResponseEntity<Object> handleExceptionInternalConstraint(Exception e, ErrorStatus errorStatus,
-//                                                                     HttpHeaders headers, WebRequest request) {
-//        ApiResponse<Object> body = ApiResponse.onFailure(errorStatus.getCode(), errorStatus.getMessage(), null);
-//        return super.handleExceptionInternal(
-//                e,
-//                body,
-//                headers,
-//                errorStatus.getHttpStatus(),
-//                request
-//        );
-//    }
 
     private ResponseEntity<Object> createResponseEntity(@Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode) {
         return new ResponseEntity(body, headers, statusCode);
