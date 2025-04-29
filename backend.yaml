@@ -16,11 +16,12 @@ spec:
       containers:
         - name: snowhite
           image: registry.ryuuga.duckdns.org/snowhite/backend:latest
+          command: ["sh", "-c", "cp /backend-env/.env .env && java -jar *-SNAPSHOT.jar"]
           ports:
             - containerPort: 8080
           volumeMounts:
             - name: backend-env
-              mountPath: .env
+              mountPath: /backend-env
               readOnly: true
       volumes:
         - name: backend-env
