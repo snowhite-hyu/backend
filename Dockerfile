@@ -1,14 +1,18 @@
-# Base Image
+FROM openjdk:21 AS build
+
+RUN microdnf install findutils
+
+ENV APP_DIR /usr/src/app
+WORKDIR $APP_DIR
+RUN mkdir -p $APP_DIR
+COPY . .
+
+RUN ./gradlew clean build -x test
+
 FROM openjdk:21
 
-# Directory
-WORKDIR /app
+ENV APP_DIR /usr/src/app
+WORKDIR $APP_DIR
+COPY --from=build $APP_DIR/build/libs/*.jar .
 
-# 빌드 경로
-ARG JAR_PATH=build/libs
-
-# 빌드 파일 복사
-COPY ${JAR_PATH}/*.jar snowhite.jar
-
-# 실행
-ENTRYPOINT ["java", "-jar", "snowhite.jar"]
+ENTRYPOINT ["sh", "-c", "java -jar *-SNAPSHOT.jar"]

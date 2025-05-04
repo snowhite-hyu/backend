@@ -30,7 +30,7 @@ services:
       - mysql
       - redis
     ports:
-      - "8080:8080"
+      - "8090:8080"
 
 networks:
   snowhite-network:

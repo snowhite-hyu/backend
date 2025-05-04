@@ -1,0 +1,26 @@
+package com.snowhite.server.payload.domain;
+
+import com.snowhite.server.payload.domain.common.BaseEntity;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "username", nullable = false)
+    private String username;
+
+    @Column(name = "email", nullable = false)
+    private String email;
+
+    @Column(name = "password", nullable = false)
+    private String password;
+
+    @Column(name = "logged_in", nullable = false)
+    private boolean loggedIn;
+
+}
