@@ -1,6 +1,6 @@
-package com.snowhite.server.payload.domain;
+package com.snowhite.server.domain;
 
-import com.snowhite.server.payload.domain.common.BaseEntity;
+import com.snowhite.server.domain.common.BaseEntity;
 import jakarta.persistence.*;
 
 @Entity
