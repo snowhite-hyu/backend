@@ -1,4 +1,4 @@
-package com.snowhite.server.payload.domain.common;
+package com.snowhite.server.web.domain.common;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
