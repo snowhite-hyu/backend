@@ -1,9 +1,6 @@
-package com.snowhite.server.web.domain;
+package com.snowhite.server.domain;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.List;
 import java.util.Objects;
