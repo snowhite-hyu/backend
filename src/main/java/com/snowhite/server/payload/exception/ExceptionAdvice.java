@@ -4,6 +4,8 @@ import com.snowhite.server.payload.ApiResponse;
 
 import com.snowhite.server.payload.code.status.ErrorStatus;
 import com.snowhite.server.payload.dto.ErrorReasonDTO;
+import com.snowhite.server.web.controller.HealthCheckController;
+import com.snowhite.server.web.controller.UserController;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -14,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebExchange;
 
-@RestControllerAdvice(annotations = RestController.class)
+@RestControllerAdvice(annotations = {RestController.class}, basePackageClasses = {HealthCheckController.class, UserController.class})
 public class ExceptionAdvice {
 
     @ExceptionHandler
