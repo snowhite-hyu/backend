@@ -1,8 +1,12 @@
-package com.snowhite.server.payload.domain;
+package com.snowhite.server.web.domain;
 
-import com.snowhite.server.payload.domain.common.BaseEntity;
+import com.snowhite.server.web.domain.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {
