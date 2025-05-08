@@ -6,6 +6,7 @@ import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.payload.code.status.ErrorStatus;
 import com.snowhite.server.dto.EmailDto;
 import com.snowhite.server.dto.RegisterDto;
+import com.snowhite.server.payload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,12 +22,8 @@ public class UserService {
 
     @Transactional
     public Mono<ApiResponse<String>> register(final RegisterDto registerDto){
-        if (checkEmail(registerDto.getUsername())) {
-            return Mono.just(ApiResponse.onFailure(
-                    ErrorStatus._BAD_REQUEST.getCode(),
-                    "이미 존재하는 이메일입니다.",
-                    null
-            ));
+        if (checkEmail(registerDto.getEmail())) {
+            throw new GeneralException(ErrorStatus._BAD_REQUEST);
         }
         User user = new User();
         user.setEmail(registerDto.getEmail());
