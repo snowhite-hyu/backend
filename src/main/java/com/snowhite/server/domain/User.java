@@ -1,8 +1,10 @@
-package com.snowhite.server.payload.domain;
+package com.snowhite.server.domain;
 
-import com.snowhite.server.payload.domain.common.BaseEntity;
+import com.snowhite.server.domain.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Setter;
 
+@Setter
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {
@@ -21,6 +23,6 @@ public class User extends BaseEntity {
     private String password;
 
     @Column(name = "logged_in", nullable = false)
-    private boolean loggedIn;
+    private boolean loggedIn = false;
 
 }
