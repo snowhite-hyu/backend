@@ -47,6 +47,11 @@ dependencies {
 	// junit
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+	// swagger
+	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.7.0'
+
+	// netty
+	implementation 'io.netty:netty-resolver-dns-native-macos:4.1.68.Final:osx-aarch_64'
 }
 
 tasks.named('test') {

@@ -25,6 +25,6 @@ public class User extends BaseEntity {
     private String password;
 
     @Column(name = "logged_in", nullable = false)
-    private boolean loggedIn;
+    private boolean loggedIn = false;
 
 }
