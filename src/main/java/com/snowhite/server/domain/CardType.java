@@ -1,4 +1,4 @@
-package com.snowhite.server.payload.domain;
+package com.snowhite.server.domain;
 
 public enum CardType {
     CAVE,
