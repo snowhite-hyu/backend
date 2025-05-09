@@ -1,6 +1,6 @@
-package com.snowhite.server.web.domain;
+package com.snowhite.server.domain;
 
-import com.snowhite.server.web.domain.common.BaseEntity;
+import com.snowhite.server.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,6 +25,6 @@ public class User extends BaseEntity {
     private String password;
 
     @Column(name = "logged_in", nullable = false)
-    private boolean loggedIn;
+    private boolean loggedIn = false;
 
 }

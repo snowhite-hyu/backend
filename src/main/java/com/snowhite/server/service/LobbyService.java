@@ -1,6 +1,7 @@
-package com.snowhite.server.web.service;
+package com.snowhite.server.service;
 
-import com.snowhite.server.web.domain.Room;
+import com.snowhite.server.domain.Room;
+import com.snowhite.server.payload.ApiResponse;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -9,12 +10,12 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 @Component
-public class LobbyHandler {
+public class LobbyService {
 
     private final ReactiveRedisTemplate<String, Long> redisTemplateForIds;
     private final ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
 
-    public LobbyHandler(
+    public LobbyService(
             ReactiveRedisTemplate<String, Long> redisTemplateForIds,
             ReactiveRedisTemplate<Long, Room> redisTemplateForRooms
     ) {
@@ -29,6 +30,6 @@ public class LobbyHandler {
                 .collectList()
                 .flatMap(rooms -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(rooms));
+                        .bodyValue(ApiResponse.onSuccess(rooms)));
     }
 }
