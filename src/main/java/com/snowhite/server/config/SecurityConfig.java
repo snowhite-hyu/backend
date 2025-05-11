@@ -30,7 +30,7 @@ public class SecurityConfig {
                                 .pathMatchers(
                                         "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
                                         "/swagger-resources/**", "/webjars/**",
-                                        "/register", "/check-email"
+                                        "/register", "/check-email", "/login", "/check-login"
                                 ).permitAll()
                                 .anyExchange().authenticated()
                 );
