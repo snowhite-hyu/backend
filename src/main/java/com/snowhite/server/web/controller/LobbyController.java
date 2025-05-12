@@ -15,7 +15,7 @@ public class LobbyController {
     @Bean
     public RouterFunction<ServerResponse> lobbyRouter(LobbyService service) {
         return RouterFunctions.route()
-                .GET("/rooms", RequestPredicates.accept(MediaType.APPLICATION_JSON), service::getRooms)
+                .GET("/lobby", RequestPredicates.accept(MediaType.APPLICATION_JSON), service::getRooms)
                 .build();
     }
 
