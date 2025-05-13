@@ -19,10 +19,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisOperations;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.RedisSerializationContext;
-import org.springframework.data.redis.serializer.RedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.data.redis.serializer.*;
 
 @Configuration
 @EnableAutoConfiguration(exclude={RedisAutoConfiguration.class, RedisReactiveAutoConfiguration.class})
@@ -39,17 +36,22 @@ public class RedisConfig {
     }
 
     @Bean
-    public ReactiveRedisOperations<String, Object> redisTemplateForRoom() {
-        ReactiveRedisConnectionFactory rrcf = redisConnectionFactory();
+    public ReactiveRedisTemplate<String, Long> stringLongReactiveRedisTemplate(
+            ReactiveRedisConnectionFactory factory) {
+                RedisSerializationContext<String, Long> context = RedisSerializationContext
+                .<String, Long>newSerializationContext(new StringRedisSerializer())
+                .value(new GenericToStringSerializer<>(Long.class))
+                .build();
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
 
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(Object.class);
-
-        RedisSerializationContext.RedisSerializationContextBuilder<String, Object> builder = RedisSerializationContext
-                .newSerializationContext(new StringRedisSerializer());
-
-        RedisSerializationContext<String, Object> context = builder.value(serializer).hashValue(serializer)
-                .hashKey(serializer).build();
-
-        return new ReactiveRedisTemplate<>(rrcf, context);
+    @Bean
+    public ReactiveRedisTemplate<Long, Room> longRoomReactiveRedisTemplate(
+            ReactiveRedisConnectionFactory factory) {
+        RedisSerializationContext<Long, Room> context = RedisSerializationContext
+                .<Long, Room>newSerializationContext(new GenericToStringSerializer<>(Long.class))
+                .value(new Jackson2JsonRedisSerializer<>(Room.class))
+                .build();
+        return new ReactiveRedisTemplate<>(factory, context);
     }
 }
