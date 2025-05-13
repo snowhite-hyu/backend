@@ -41,7 +41,7 @@ public class JwtWebFilter implements WebFilter {
             String token = accessToken.substring(7);
             if (jwtProvider.isTokenValid(token)) {
                 String userId = jwtProvider.extractClaim(token, Claims::getId);
-                Optional<User> user = userRepository.findById(userId);
+                Optional<User> user = userRepository.findById(Long.parseLong(userId));
                 var authentication = new UsernamePasswordAuthenticationToken(
                         userId,
                         null,
