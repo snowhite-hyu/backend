@@ -39,13 +39,9 @@ class LobbyServiceTest {
     @Autowired
     private WebTestClient client;
 
-    @Autowired
-    @Qualifier("reactiveRedisTemplateForIds")
-    private ReactiveRedisTemplate<String, Long> redisTemplateForIds;
-
     @Autowired()
     @Qualifier("reactiveRedisTemplateForRooms")
-    private ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
+    private ReactiveRedisTemplate<String, Room> redisTemplateForRooms;
 
     @Autowired
     private WebTestClient webTestClient;
@@ -53,8 +49,8 @@ class LobbyServiceTest {
     @BeforeEach
     void setUp() {
 
-        Long roomId1 = 1L;
-        Long roomId2 = 2L;
+        String roomId1 = "room:" + "003";
+        String roomId2 = "room:" + "017";
 
         User user1 = new User();
         user1.setId(1);
@@ -69,7 +65,6 @@ class LobbyServiceTest {
         Room room1 = new Room(roomId1, user1, List.of(user1, user2), 10, 30, false);
         Room room2 = new Room(roomId2, user3, List.of(user3, user4), 20, 30, true);
 
-        redisTemplateForIds.opsForSet().add("rooms", roomId1, roomId2).block();
         redisTemplateForRooms.opsForValue().set(roomId1, room1).block();
         redisTemplateForRooms.opsForValue().set(roomId2, room2).block();
 
@@ -77,9 +72,8 @@ class LobbyServiceTest {
 
     @AfterEach
     void tearDown() {
-        redisTemplateForIds.delete("rooms").block();
-        redisTemplateForRooms.delete(1L).block();
-        redisTemplateForRooms.delete(2L).block();
+        redisTemplateForRooms.delete("room:003").block();
+        redisTemplateForRooms.delete("room:017").block();
     }
 
 
@@ -104,7 +98,7 @@ class LobbyServiceTest {
                     assertEquals(2, rooms.size());
 
                     Room foundRoom = rooms.stream()
-                            .filter(r -> r.getRoomId().equals(1L))
+                            .filter(r -> r.getRoomId().equals("room:003"))
                             .findAny()
                             .orElseThrow();
 
@@ -121,7 +115,7 @@ class LobbyServiceTest {
                         assertEquals(expectedUsers.get(i).getId(), actualUsers.get(i).getId());
                     }
 
-                    assertEquals(1L, foundRoom.getRoomId());
+                    assertEquals("room:003", foundRoom.getRoomId());
 
                     boolean containsUser1 = actualUsers.stream().anyMatch(u -> u.getId() == 1);
                     assertTrue(containsUser1);

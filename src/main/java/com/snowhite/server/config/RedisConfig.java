@@ -26,23 +26,19 @@ public class RedisConfig {
         return new LettuceConnectionFactory(host, port);
     }
 
-    @Bean(name="reactiveRedisTemplateForIds")
-    public ReactiveRedisTemplate<String, Long> reactiveRedisTemplateForIds(
-            ReactiveRedisConnectionFactory factory) {
-                RedisSerializationContext<String, Long> context = RedisSerializationContext
-                .<String, Long> newSerializationContext(new StringRedisSerializer())
-                .value(new GenericToStringSerializer<>(Long.class))
-                .build();
-        return new ReactiveRedisTemplate<>(factory, context);
-    }
-
     @Bean(name="reactiveRedisTemplateForRooms")
-    public ReactiveRedisTemplate<Long, Room> reactiveRedisTemplateForRooms(
+    public ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms(
             ReactiveRedisConnectionFactory factory) {
-        RedisSerializationContext<Long, Room> context = RedisSerializationContext
-                .<Long, Room>newSerializationContext(new GenericToStringSerializer<>(Long.class))
-                .value(new Jackson2JsonRedisSerializer<>(Room.class))
+        Jackson2JsonRedisSerializer<Room> serializer = new Jackson2JsonRedisSerializer<>(Room.class);
+
+        RedisSerializationContext.RedisSerializationContextBuilder<String, Room> builder =
+                RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
+
+        RedisSerializationContext<String, Room> context = builder
+                .value(serializer)
+                .hashValue(serializer)
                 .build();
+
         return new ReactiveRedisTemplate<>(factory, context);
     }
 }
