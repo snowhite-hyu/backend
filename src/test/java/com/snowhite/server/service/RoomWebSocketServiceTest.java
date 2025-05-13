@@ -1,93 +1,118 @@
 package com.snowhite.server.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.snowhite.server.config.JwtProvider;
 import com.snowhite.server.domain.Room;
 import com.snowhite.server.domain.User;
-import com.snowhite.server.repository.UserRepository;
-import org.junit.jupiter.api.Test;
+import com.snowhite.server.domain.UserRepository;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.ReactiveSetOperations;
-import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
+import org.springframework.web.reactive.socket.client.WebSocketClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Optional;
-
-import static org.mockito.Mockito.when;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.web.reactive.socket.*;
-import reactor.core.publisher.*;
-import reactor.test.StepVerifier;
+import java.time.Duration;
 
 import java.net.URI;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.mockito.Mockito.*;
-
-import org.mockito.Mockito;
-import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 
-import static org.mockito.ArgumentMatchers.any;
 
-public class RoomWebSocketServiceTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class RoomWebSocketServiceTest {
 
-    private RoomWebSocketService roomWebSocketService;
-    private ReactiveRedisTemplate<String, Long> redisTemplateForIds;
-    private ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
-    private UserRepository userRepository;
+    @Autowired
     private JwtProvider jwtProvider;
-    private WebSocketSession session;
-    private HandshakeInfo handshakeInfo;
 
-    @BeforeEach
-    void setUp() {
-        redisTemplateForIds = Mockito.mock(ReactiveRedisTemplate.class);
-        redisTemplateForRooms = Mockito.mock(ReactiveRedisTemplate.class);
-        userRepository = Mockito.mock(UserRepository.class);
-        jwtProvider = Mockito.mock(JwtProvider.class);
-        session = Mockito.mock(WebSocketSession.class);
-        handshakeInfo = Mockito.mock(HandshakeInfo.class);
+    @Autowired
+    private UserRepository userRepository;
 
-        roomWebSocketService = new RoomWebSocketService(
-                redisTemplateForIds,
-                redisTemplateForRooms,
-                userRepository,
-                jwtProvider
-        );
+    @Autowired
+    @Qualifier("reactiveRedisTemplateForRooms")
+    private ReactiveRedisTemplate<String, Room> redisTemplateForRooms;
+
+
+    @LocalServerPort
+    private int port;
+
+    private WebSocketClient client;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private User testUser;
+    private String jwtToken;
+
+    @BeforeAll
+    void setup(@Autowired PasswordEncoder passwordEncoder) {
+        client = new ReactorNettyWebSocketClient();
+
+        testUser = new User();
+        testUser.setUsername("testuser");
+        testUser.setPassword(passwordEncoder.encode("password"));
+        testUser.setEmail("testuser@test.com");
+        testUser.setLoggedIn(true);
+        testUser = userRepository.save(testUser);
+
+        jwtToken = jwtProvider.generateToken(testUser.getId());
     }
 
     @Test
-    void testHandleCreateRoomSuccess() {
-        String token = "validToken";
-        String uri = "ws://localhost/rooms?token=" + token;
+    void testCreateRoom() throws Exception {
+        String uri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
+        AtomicReference<String> createdRoomId = new AtomicReference<>();
 
-        when(session.getHandshakeInfo()).thenReturn(handshakeInfo);
-        when(handshakeInfo.getUri()).thenReturn(URI.create(uri));
-        when(jwtProvider.isTokenValid(token)).thenReturn(true);
-        when(jwtProvider.extractUserIdFromToken(token)).thenReturn(1L);
+        CountDownLatch latch = new CountDownLatch(1);
 
-        User user = new User();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        client.execute(
+                URI.create(uri),
+                session -> {
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("action", "create");
+                    payload.put("capacity", 4);
+                    payload.put("turnTime", 30);
 
-        when(redisTemplateForRooms.opsForValue()).thenReturn(Mockito.mock(ReactiveValueOperations.class));
-        when(redisTemplateForIds.opsForSet()).thenReturn(Mockito.mock(ReactiveSetOperations.class));
+                    session.send(Mono.just(session.textMessage(payload.toString()))).subscribe();
 
-        when(redisTemplateForRooms.opsForValue().set(any(Long.class), any(Room.class))).thenReturn(Mono.just(true));
-        when(redisTemplateForIds.opsForSet().add(any(String.class), any(Long.class))).thenReturn(Mono.just(1L));
+                    return session.receive()
+                            .map(WebSocketMessage::getPayloadAsText)
+                            .doOnNext(message -> {
+                                System.out.println("Response: " + message);
+                                if (message.startsWith("Room created")) {
+                                    session.close().subscribe();
+                                    String roomId = message.split(": ")[1].trim();
+                                    createdRoomId.set(roomId);
+                                    latch.countDown();
+                                }
+                            })
+                            .take(1)
+                            .then();
+                }
+        ).block(Duration.ofSeconds(5));
 
-        String createRoomPayload = "{\"action\":\"create\", \"capacity\":5, \"turnTime\":30}";
-        WebSocketMessage message = Mockito.mock(WebSocketMessage.class);
-        when(message.getPayloadAsText()).thenReturn(createRoomPayload);
+        if (!latch.await(10, TimeUnit.SECONDS)) {
+            Assertions.fail("Did not receive response from WebSocket server");
+        }
 
-        when(session.receive()).thenReturn(Flux.just(message));
-        when(session.textMessage(any())).thenReturn(message);
-        when(session.send(any())).thenReturn(Mono.empty());
+        String roomId = createdRoomId.get();
+        Room room = redisTemplateForRooms.opsForValue()
+                .get(roomId)
+                .block(Duration.ofSeconds(3));
 
-        Mono<Void> result = roomWebSocketService.handle(session);
-
-        StepVerifier.create(result)
-                .verifyComplete();
-
-        verify(session).send(any());
+        Assertions.assertNotNull(room);
+        Assertions.assertEquals(roomId, room.getRoomId());
+        Assertions.assertEquals(4, room.getCapacity());
+        Assertions.assertEquals(30, room.getTurnTime());
     }
 }

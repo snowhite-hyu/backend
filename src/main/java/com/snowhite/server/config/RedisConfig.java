@@ -1,5 +1,6 @@
 package com.snowhite.server.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.Room;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -11,6 +12,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.*;
+import org.springframework.web.reactive.socket.WebSocketSession;
 
 @Configuration
 @EnableAutoConfiguration(exclude={RedisAutoConfiguration.class, RedisReactiveAutoConfiguration.class})
@@ -28,8 +30,10 @@ public class RedisConfig {
 
     @Bean(name="reactiveRedisTemplateForRooms")
     public ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms(
-            ReactiveRedisConnectionFactory factory) {
-        Jackson2JsonRedisSerializer<Room> serializer = new Jackson2JsonRedisSerializer<>(Room.class);
+            ReactiveRedisConnectionFactory factory,
+            ObjectMapper objectMapper) {
+
+        Jackson2JsonRedisSerializer<Room> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, Room.class);
 
         RedisSerializationContext.RedisSerializationContextBuilder<String, Room> builder =
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
@@ -41,4 +45,16 @@ public class RedisConfig {
 
         return new ReactiveRedisTemplate<>(factory, context);
     }
+
+    @Bean(name="reactiveRedisTemplateForSessionIds")
+    public ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession(
+            ReactiveRedisConnectionFactory factory) {
+        RedisSerializationContext<Long, String> context = RedisSerializationContext
+                .<Long, String> newSerializationContext(new GenericToStringSerializer<>(Long.class))
+                .value(new StringRedisSerializer())
+                .build();
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
+
+
 }

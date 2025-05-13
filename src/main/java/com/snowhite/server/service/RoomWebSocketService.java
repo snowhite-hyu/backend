@@ -5,8 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.config.JwtProvider;
 import com.snowhite.server.domain.Room;
 import com.snowhite.server.domain.User;
-import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.domain.UserRepository;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -18,26 +21,32 @@ import reactor.core.scheduler.Schedulers;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
+@Slf4j
 @Component
 public class RoomWebSocketService implements WebSocketHandler {
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
-    private final ReactiveRedisTemplate<String, Long> redisTemplateForIds;
-    private final ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
+    private final ReactiveRedisTemplate<String, Room> redisTemplateForRooms;
+    private final ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+    private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
     public RoomWebSocketService(
-            ReactiveRedisTemplate<String, Long> redisTemplateForIds,
-            ReactiveRedisTemplate<Long, Room> redisTemplateForRooms,
+            @Qualifier("reactiveRedisTemplateForRooms")
+            ReactiveRedisTemplate<String, Room> redisTemplateForRooms,
+            @Qualifier("reactiveRedisTemplateForSessionIds")
+            ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds,
             UserRepository userRepository,
             JwtProvider jwtProvider
     ) {
-        this.redisTemplateForIds = redisTemplateForIds;
         this.redisTemplateForRooms = redisTemplateForRooms;
+        this.redisTemplateForSessionIds = redisTemplateForSessionIds;
         this.userRepository = userRepository;
         this.jwtProvider = jwtProvider;
     }
@@ -80,35 +89,52 @@ public class RoomWebSocketService implements WebSocketHandler {
             return session.send(Mono.just(session.textMessage("Invalid token"))).then();
         }
 
-        return session.receive()
-                .map(WebSocketMessage::getPayloadAsText)
-                .flatMap(payload -> {
-                    try {
-                        ObjectMapper mapper = new ObjectMapper();
-                        JsonNode node = mapper.readTree(payload);
-                        String action = node.get("action").asText();
+        long userId = jwtProvider.extractUserIdFromToken(token);
 
-                        if ("create".equals(action)) {
+        return redisTemplateForSessionIds.opsForValue().set(userId, session.getId())
+                .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
+                .then(
+                        session.receive()
+                                .doFinally(signalType -> sessionMap.remove(session.getId()))
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .flatMap(processMessage(session, token))
+                                .then()
+                );
+    }
 
-                            long userId = jwtProvider.extractUserIdFromToken(token);
-                            int capacity = node.get("capacity").asInt();
-                            int turnTime = node.get("turnTime").asInt();
+    private Function<String, Publisher<? extends Void>> processMessage(WebSocketSession session, String token) {
+        return payload -> {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode node = mapper.readTree(payload);
+                String action = node.get("action").asText().toLowerCase();
 
-                            return handleCreateRoom(session, userId, capacity, turnTime);
-                        }
+                switch (action) {
+                    case "create":
+                    {
+                        long userId = jwtProvider.extractUserIdFromToken(token);
+                        int capacity = node.get("capacity").asInt();
+                        int turnTime = node.get("turnTime").asInt();
 
+                        return handleCreateRoom(session, userId, capacity, turnTime);
+                    }
+
+                    default:
+                    {
                         return session.send(Mono.just(
                                 session.textMessage("Unsupported action: " + action)));
-
-                    } catch (Exception e) {
-                        return session.send(Mono.just(
-                                session.textMessage("Invalid frame: " + e.getMessage())));
                     }
-                })
-                .then();
+                }
+
+            } catch (Exception e) {
+                return session.send(Mono.just(
+                        session.textMessage("Invalid frame: " + e.getMessage())));
+            }
+        };
     }
 
     private Mono<Void> handleCreateRoom(WebSocketSession session, long userId, int capacity, int turnTime) {
+
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
@@ -118,16 +144,15 @@ public class RoomWebSocketService implements WebSocketHandler {
                     }
 
                     User user = optionalUser.get();
-                    Long roomId = roomIdGenerator.incrementAndGet();
+                    String roomId = "room:" + String.valueOf(roomIdGenerator.incrementAndGet());
                     List<User> users = new ArrayList<>();
                     users.add(user);
 
                     Room room = new Room(roomId, user, users, capacity, turnTime, false);
 
                     Mono<Boolean> saveRoom = redisTemplateForRooms.opsForValue().set(roomId, room);
-                    Mono<Long> addRoomId = redisTemplateForIds.opsForSet().add("rooms", roomId);
 
-                    return Mono.when(saveRoom, addRoomId)
+                    return Mono.when(saveRoom)
                             .then(session.send(Mono.just(
                                     session.textMessage("Room created: " + roomId))));
                 });
