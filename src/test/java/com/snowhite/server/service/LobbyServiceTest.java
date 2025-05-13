@@ -4,8 +4,16 @@ import com.snowhite.server.domain.Room;
 import com.snowhite.server.domain.User;
 import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.service.LobbyService;
+import com.snowhite.server.web.controller.LobbyController;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveSetOperations;
@@ -23,20 +31,27 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureWebTestClient
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LobbyServiceTest {
 
-    @Test
-     void getRooms_returnsRoomList() {
+    @Autowired
+    private WebTestClient client;
 
-        //given
-        ReactiveRedisTemplate<String, Long> redisTemplateForIds = Mockito.mock(ReactiveRedisTemplate.class);
-        ReactiveRedisTemplate<Long, Room> redisTemplateForRooms = Mockito.mock(ReactiveRedisTemplate.class);
+    @Autowired
+    @Qualifier("reactiveRedisTemplateForIds")
+    private ReactiveRedisTemplate<String, Long> redisTemplateForIds;
 
-        var setOps = Mockito.mock(ReactiveSetOperations.class);
-        var valueOps = Mockito.mock(ReactiveValueOperations.class);
+    @Autowired()
+    @Qualifier("reactiveRedisTemplateForRooms")
+    private ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
 
-        Mockito.when(redisTemplateForIds.opsForSet()).thenReturn(setOps);
-        Mockito.when(redisTemplateForRooms.opsForValue()).thenReturn(valueOps);
+    @Autowired
+    private WebTestClient webTestClient;
+
+    @BeforeEach
+    void setUp() {
 
         Long roomId1 = 1L;
         Long roomId2 = 2L;
@@ -51,59 +66,64 @@ class LobbyServiceTest {
         User user4 = new User();
         user4.setId(4);
 
-        Set<Long> roomIds = Set.of(roomId1, roomId2);
+        Room room1 = new Room(roomId1, user1, List.of(user1, user2), 10, 30, false);
+        Room room2 = new Room(roomId2, user3, List.of(user3, user4), 20, 30, true);
 
-        Room room1 = new Room(1L, user1, List.of(user1, user2), 10, 30, false);
-        Room room2 = new Room(2L, user3, List.of(user3, user4), 20, 30, true);
+        redisTemplateForIds.opsForSet().add("rooms", roomId1, roomId2).block();
+        redisTemplateForRooms.opsForValue().set(roomId1, room1).block();
+        redisTemplateForRooms.opsForValue().set(roomId2, room2).block();
 
-        Mockito.when(setOps.members("rooms")).thenReturn(Flux.fromIterable(roomIds));
-        Mockito.when(valueOps.get(roomId1)).thenReturn(Mono.just(room1));
-        Mockito.when(valueOps.get(roomId2)).thenReturn(Mono.just(room2));
+    }
 
-        LobbyService handler = new LobbyService(redisTemplateForIds, redisTemplateForRooms);
+    @AfterEach
+    void tearDown() {
+        redisTemplateForIds.delete("rooms").block();
+        redisTemplateForRooms.delete(1L).block();
+        redisTemplateForRooms.delete(2L).block();
+    }
 
-        RouterFunction<?> router = RouterFunctions.route()
-                .GET("/rooms", handler::getRooms)
-                .build();
 
-        WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
 
-        //when
-        client.get().uri("/rooms")
+    @Test
+     void getRooms_returnsRoomList() {
+
+        webTestClient.get().uri("/lobby")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
-
-        //then
                 .expectStatus().isOk()
                 .expectBody(new ParameterizedTypeReference<ApiResponse<List<Room>>>() {})
                 .consumeWith(response -> {
-
                     ApiResponse<List<Room>> apiResponse = response.getResponseBody();
 
-                    assert apiResponse != null;
-                    assert apiResponse.getIsSuccess();
-                    assert "COMMON200".equals(apiResponse.getCode());
+                    assertNotNull(apiResponse);
+                    assertTrue(apiResponse.getIsSuccess());
+                    assertEquals("COMMON200", apiResponse.getCode());
 
                     List<Room> rooms = apiResponse.getResult();
-
                     assertNotNull(rooms);
                     assertEquals(2, rooms.size());
 
                     Room foundRoom = rooms.stream()
-                            .filter(r -> r.getRoomId().equals(room1.getRoomId()))
+                            .filter(r -> r.getRoomId().equals(1L))
                             .findAny()
                             .orElseThrow();
 
-                    List<User> expectedUsers = room1.getUsers();
+                    User user1 = new User();
+                    user1.setId(1);
+                    User user2 = new User();
+                    user2.setId(2);
+
+                    List<User> expectedUsers = List.of(user1, user2);
                     List<User> actualUsers = foundRoom.getUsers();
                     assertEquals(expectedUsers.size(), actualUsers.size());
+
                     for (int i = 0; i < expectedUsers.size(); i++) {
-                      assertEquals(expectedUsers.get(i).getId(), actualUsers.get(i).getId());
+                        assertEquals(expectedUsers.get(i).getId(), actualUsers.get(i).getId());
                     }
 
-                    assertEquals(room1.getRoomId(), foundRoom.getRoomId());
+                    assertEquals(1L, foundRoom.getRoomId());
 
-                    boolean containsUser1 = actualUsers.stream().anyMatch(u -> u.getId() == user1.getId());
+                    boolean containsUser1 = actualUsers.stream().anyMatch(u -> u.getId() == 1);
                     assertTrue(containsUser1);
                 });
     }
