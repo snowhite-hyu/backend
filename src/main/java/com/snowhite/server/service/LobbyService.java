@@ -13,10 +13,10 @@ import reactor.core.publisher.Mono;
 @Component
 public class LobbyService {
 
-    @Qualifier("reactiveRedisTemplateForId")
+    @Qualifier("reactiveRedisTemplateForIds")
     private final ReactiveRedisTemplate<String, Long> redisTemplateForIds;
 
-    @Qualifier("reactiveRedisTemplateForRoom")
+    @Qualifier("reactiveRedisTemplateForRooms")
     private final ReactiveRedisTemplate<Long, Room> redisTemplateForRooms;
 
     public LobbyService(
