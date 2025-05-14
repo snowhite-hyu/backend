@@ -1,5 +1,6 @@
 package com.snowhite.server.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.Room;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -28,8 +29,10 @@ public class RedisConfig {
 
     @Bean(name="reactiveRedisTemplateForRooms")
     public ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms(
-            ReactiveRedisConnectionFactory factory) {
-        Jackson2JsonRedisSerializer<Room> serializer = new Jackson2JsonRedisSerializer<>(Room.class);
+            ReactiveRedisConnectionFactory factory,
+            ObjectMapper objectMapper) {
+
+        Jackson2JsonRedisSerializer<Room> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, Room.class);
 
         RedisSerializationContext.RedisSerializationContextBuilder<String, Room> builder =
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());

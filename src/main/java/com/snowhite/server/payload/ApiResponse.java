@@ -7,16 +7,20 @@ import com.snowhite.server.payload.code.BaseCode;
 import com.snowhite.server.payload.code.status.SuccessStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @AllArgsConstructor
+@NoArgsConstructor
 @JsonPropertyOrder({"isSuccess", "code", "message", "result"})
 public class ApiResponse<T> {
 
     @JsonProperty("isSuccess")  // 생략 가능
-    private final Boolean isSuccess;
-    private final String code;
-    private final String message;
+    private Boolean isSuccess;
+    private String code;
+    private String message;
     @JsonInclude(JsonInclude.Include.NON_NULL)  // null인 경우 json 직렬화에서 제외
     private T result;
 

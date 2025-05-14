@@ -39,7 +39,7 @@ class LobbyServiceTest {
     @Autowired
     private WebTestClient client;
 
-    @Autowired()
+    @Autowired
     @Qualifier("reactiveRedisTemplateForRooms")
     private ReactiveRedisTemplate<String, Room> redisTemplateForRooms;
 
@@ -121,4 +121,30 @@ class LobbyServiceTest {
                     assertTrue(containsUser1);
                 });
     }
+
+    @Test
+    void getRooms_returnsEmptyList_whenNoRoomsExist() {
+
+        redisTemplateForRooms.keys("room:*")
+                .flatMap(redisTemplateForRooms::delete)
+                .blockLast();
+
+        webTestClient.get().uri("/lobby")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(new ParameterizedTypeReference<ApiResponse<List<Room>>>() {})
+                .consumeWith(response -> {
+                    ApiResponse<List<Room>> apiResponse = response.getResponseBody();
+
+                    assertNotNull(apiResponse);
+                    assertTrue(apiResponse.getIsSuccess());
+                    assertEquals("COMMON200", apiResponse.getCode());
+
+                    List<Room> rooms = apiResponse.getResult();
+                    assertNotNull(rooms);
+                    assertEquals(0, rooms.size());
+                });
+    }
+
 }
