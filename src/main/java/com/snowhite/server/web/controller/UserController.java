@@ -6,7 +6,9 @@ import com.snowhite.server.dto.EmailDto;
 import com.snowhite.server.dto.RegisterDto;
 import com.snowhite.server.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
@@ -21,8 +23,14 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("/login")
-    public Mono<ApiResponse<String>> login(@RequestBody LoginRequestDto loginRequestDto) {
-        return userService.login(loginRequestDto);
+    public Mono<ApiResponse<String>> login(@RequestBody LoginRequestDto loginRequestDto,
+                                           ServerWebExchange exchange) {
+        ServerHttpResponse response = exchange.getResponse();
+        return userService.login(loginRequestDto)
+            .map(token -> {
+                response.getHeaders().add(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                return ApiResponse.onSuccess("access token: " + token);
+            });
     }
 
     @GetMapping("/check-login")

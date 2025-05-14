@@ -26,7 +26,7 @@ public class JwtWebFilter implements WebFilter {
     private static final List<String> EXCLUDE_URLS = List.of(
             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
             "/swagger-resources/**", "/webjars/**",
-            "/login", "/register", "/checkname"
+            "/users/login", "/users/register", "/users/check-email","/users/check-login"
     );
 
     @Override

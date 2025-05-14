@@ -29,14 +29,14 @@ public class UserService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final JwtProvider jwtProvider;
 
-    public Mono<ApiResponse<String>> login(final LoginRequestDto loginRequestDto) {
+    public Mono<String> login(final LoginRequestDto loginRequestDto) {
         User user = userRepository.findByEmail(loginRequestDto.getEmail());
         if(!bCryptPasswordEncoder.matches(loginRequestDto.getPassword(), user.getPassword()))
             throw new BadCredentialsException(ErrorStatus._BAD_REQUEST.toString());
         String accessToken = jwtProvider.generateToken(user.getId());
         LoginResponseDto.builder().token(accessToken).build();
         user.setLoggedIn(true);
-        return Mono.just(ApiResponse.onSuccess("access token: " + accessToken));
+        return Mono.just(accessToken);
     }
 
     public Mono<ApiResponse<String>> checkLogin(Authentication authentication, ServerHttpRequest request) {
