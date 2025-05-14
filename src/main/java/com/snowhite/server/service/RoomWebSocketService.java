@@ -197,4 +197,49 @@ public class RoomWebSocketService implements WebSocketHandler {
                 });
     }
 
+    private Mono<Void> handleJoinRoom(WebSocketSession session, long userId, String roomId) {
+        return Mono.fromCallable(() -> userRepository.findById(userId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(optionalUser -> {
+                    if (optionalUser.isEmpty()) {
+                        return session.send(Mono.just(
+                                session.textMessage("User not found")));
+                    }
+
+                    User user = optionalUser.get();
+
+                    return redisTemplateForRooms.opsForValue().get(roomId)
+                            .flatMap(room -> {
+                                if (room == null) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("Room not found: " + roomId)));
+                                }
+
+                                List<User> users = room.getUsers();
+                                if (users.stream().anyMatch(u -> u.getId() == userId)) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("User already in room")));
+                                }
+
+                                users.add(user);
+                                room.setUsers(users);
+
+                                try {
+                                    return redisTemplateForRooms.opsForValue().set(roomId, room)
+                                            .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
+                                            .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
+                                            .then(session.send(Mono.just(
+                                                    session.textMessage(
+                                                            objectMapper.writeValueAsString(room)
+                                                    ))));
+                                } catch (JsonProcessingException e) {
+                                    return session.send(Mono.just(
+                                                    session.textMessage("Error join room: " + e.getMessage())
+                                            )
+                                    );
+                                }
+                            });
+                });
+    }
+
 }
