@@ -1,5 +1,7 @@
 package com.snowhite.server.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.snowhite.server.config.JwtProvider;
@@ -13,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWeb
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
@@ -24,6 +28,7 @@ import java.time.Duration;
 import java.net.URI;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -68,10 +73,21 @@ class RoomWebSocketServiceTest {
         jwtToken = jwtProvider.generateToken(testUser.getId());
     }
 
+    @AfterEach
+    void tearDown() {
+
+        userRepository.deleteAll();
+
+        redisTemplateForRooms.keys("*")
+                .flatMap(redisTemplateForRooms::delete)
+                .then()
+                .block();
+    }
+
+
     @Test
     void testCreateRoom() throws Exception {
         String uri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
-        AtomicReference<String> createdRoomId = new AtomicReference<>();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -88,12 +104,24 @@ class RoomWebSocketServiceTest {
                     return session.receive()
                             .map(WebSocketMessage::getPayloadAsText)
                             .doOnNext(message -> {
-                                System.out.println("Response: " + message);
-                                if (message.startsWith("Room created")) {
+
+                                try {
+                                    JsonNode node = objectMapper.readTree(message);
+
+                                    Assertions.assertEquals(4, node.get("capacity").asInt());
+                                    Assertions.assertEquals(30, node.get("turnTime").asInt());
+                                    Assertions.assertEquals(false, node.get("playing").asBoolean());
+
+                                    JsonNode masterPlayerNode = node.get("masterPlayer");
+                                    Assertions.assertEquals(testUser.getId(), masterPlayerNode.get("id").asLong());
+                                    Assertions.assertEquals(testUser.getUsername(), masterPlayerNode.get("username").asText());
+                                    Assertions.assertEquals(testUser.getEmail(), masterPlayerNode.get("email").asText());
+                                    Assertions.assertEquals(testUser.isLoggedIn(), masterPlayerNode.get("loggedIn").asBoolean());
+
                                     session.close().subscribe();
-                                    String roomId = message.split(": ")[1].trim();
-                                    createdRoomId.set(roomId);
                                     latch.countDown();
+                                } catch (JsonProcessingException e) {
+                                    e.printStackTrace();
                                 }
                             })
                             .take(1)
@@ -101,18 +129,8 @@ class RoomWebSocketServiceTest {
                 }
         ).block(Duration.ofSeconds(5));
 
-        if (!latch.await(10, TimeUnit.SECONDS)) {
+        if (!latch.await(5, TimeUnit.SECONDS)) {
             Assertions.fail("Did not receive response from WebSocket server");
         }
-
-        String roomId = createdRoomId.get();
-        Room room = redisTemplateForRooms.opsForValue()
-                .get(roomId)
-                .block(Duration.ofSeconds(3));
-
-        Assertions.assertNotNull(room);
-        Assertions.assertEquals(roomId, room.getRoomId());
-        Assertions.assertEquals(4, room.getCapacity());
-        Assertions.assertEquals(30, room.getTurnTime());
     }
 }
