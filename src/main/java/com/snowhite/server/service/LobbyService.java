@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
+
 @Component
 public class LobbyService {
 
@@ -35,8 +37,15 @@ public class LobbyService {
         return scanRoomKeys()
                 .flatMap(roomId -> redisTemplateForRooms.opsForValue().get(roomId))
                 .collectList()
-                .flatMap(rooms -> ServerResponse.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(ApiResponse.onSuccess(rooms)));
+                .flatMap(rooms ->
+                {
+                    if (rooms == null) {
+                        rooms = Collections.emptyList();
+                    }
+
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(ApiResponse.onSuccess(rooms));
+                });
     }
 }
