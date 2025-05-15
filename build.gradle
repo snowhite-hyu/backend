@@ -53,6 +53,7 @@ dependencies {
 
 	// junit
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation('org.junit.jupiter:junit-jupiter:5.10.0')
 
 	// swagger
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.7.0'

@@ -12,6 +12,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.*;
+import org.springframework.web.reactive.socket.WebSocketSession;
 
 @Configuration
 @EnableAutoConfiguration(exclude={RedisAutoConfiguration.class, RedisReactiveAutoConfiguration.class})
@@ -44,4 +45,16 @@ public class RedisConfig {
 
         return new ReactiveRedisTemplate<>(factory, context);
     }
+
+    @Bean(name="reactiveRedisTemplateForSessionIds")
+    public ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession(
+            ReactiveRedisConnectionFactory factory) {
+        RedisSerializationContext<Long, String> context = RedisSerializationContext
+                .<Long, String> newSerializationContext(new GenericToStringSerializer<>(Long.class))
+                .value(new StringRedisSerializer())
+                .build();
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
+
+
 }
