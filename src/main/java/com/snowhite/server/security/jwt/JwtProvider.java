@@ -1,4 +1,4 @@
-package com.snowhite.server.config;
+package com.snowhite.server.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

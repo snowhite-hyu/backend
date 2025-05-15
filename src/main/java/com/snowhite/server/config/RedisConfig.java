@@ -1,7 +1,7 @@
 package com.snowhite.server.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.domain.Room;
+import com.snowhite.server.domain.session.Room;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
@@ -12,7 +12,6 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.*;
-import org.springframework.web.reactive.socket.WebSocketSession;
 
 @Configuration
 @EnableAutoConfiguration(exclude={RedisAutoConfiguration.class, RedisReactiveAutoConfiguration.class})

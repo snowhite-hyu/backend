@@ -1,9 +1,9 @@
 package com.snowhite.server.web.controller;
 
-import com.snowhite.server.dto.LoginRequestDto;
+import com.snowhite.server.web.dto.LoginRequestDto;
 import com.snowhite.server.payload.ApiResponse;
-import com.snowhite.server.dto.EmailDto;
-import com.snowhite.server.dto.RegisterDto;
+import com.snowhite.server.web.dto.EmailDto;
+import com.snowhite.server.web.dto.RegisterDto;
 import com.snowhite.server.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.reactive.ServerHttpRequest;

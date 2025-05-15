@@ -1,31 +1,21 @@
 package com.snowhite.server.service;
 
-import com.snowhite.server.domain.Room;
-import com.snowhite.server.domain.User;
+import com.snowhite.server.domain.session.Room;
+import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.payload.ApiResponse;
-import com.snowhite.server.service.LobbyService;
-import com.snowhite.server.web.controller.LobbyController;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.ReactiveSetOperations;
-import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.Set;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;

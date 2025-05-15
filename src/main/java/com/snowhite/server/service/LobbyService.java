@@ -1,6 +1,6 @@
 package com.snowhite.server.service;
 
-import com.snowhite.server.domain.Room;
+import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.payload.ApiResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;

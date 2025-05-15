@@ -1,14 +1,14 @@
 package com.snowhite.server.service;
 
-import com.snowhite.server.config.JwtProvider;
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
-import com.snowhite.server.dto.LoginRequestDto;
-import com.snowhite.server.dto.LoginResponseDto;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
+import com.snowhite.server.web.dto.LoginRequestDto;
+import com.snowhite.server.web.dto.LoginResponseDto;
 import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.payload.code.status.ErrorStatus;
-import com.snowhite.server.dto.EmailDto;
-import com.snowhite.server.dto.RegisterDto;
+import com.snowhite.server.web.dto.EmailDto;
+import com.snowhite.server.web.dto.RegisterDto;
 import com.snowhite.server.payload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.reactive.ServerHttpRequest;
