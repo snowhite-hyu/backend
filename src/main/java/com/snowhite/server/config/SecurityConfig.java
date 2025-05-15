@@ -31,7 +31,7 @@ public class SecurityConfig {
                                         "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
                                         "/swagger-resources/**", "/webjars/**",
                                         "/register", "/check-email", "/login", "/check-login",
-                                        "/lobby"
+                                        "/lobby", "/rooms"
                                 ).permitAll()
                                 .anyExchange().authenticated()
                 );

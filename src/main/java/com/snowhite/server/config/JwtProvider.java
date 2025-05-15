@@ -97,4 +97,10 @@ public class JwtProvider {
         return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 
+    public long extractUserIdFromToken(String token) {
+        Claims claims = extractAllClaims(token);
+
+        return Long.parseLong(claims.getId());
+    }
+
 }
