@@ -1,5 +1,6 @@
 package com.snowhite.server.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.config.JwtProvider;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -35,6 +38,8 @@ public class RoomWebSocketService implements WebSocketHandler {
     private final ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+    private final ObjectMapper objectMapper;
+
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
     public RoomWebSocketService(
@@ -43,12 +48,14 @@ public class RoomWebSocketService implements WebSocketHandler {
             @Qualifier("reactiveRedisTemplateForSessionIds")
             ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds,
             UserRepository userRepository,
-            JwtProvider jwtProvider
+            JwtProvider jwtProvider,
+            ObjectMapper objectMapper
     ) {
         this.redisTemplateForRooms = redisTemplateForRooms;
         this.redisTemplateForSessionIds = redisTemplateForSessionIds;
         this.userRepository = userRepository;
         this.jwtProvider = jwtProvider;
+        this.objectMapper = objectMapper;
     }
 
     private String extractTokenFromUri(String uri) {
@@ -66,6 +73,22 @@ public class RoomWebSocketService implements WebSocketHandler {
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    private Mono<Void> broadcastToRoom(Room room, String message) {
+        List<Mono<Void>> broadcasts = room.getUsers().stream()
+                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
+                        .flatMap(sessionId -> {
+                            WebSocketSession userSession = sessionMap.get(sessionId);
+                            if (userSession != null && userSession.isOpen()) {
+                                return userSession.send(Mono.just(userSession.textMessage(message)));
+                            } else {
+                                return Mono.empty();
+                            }
+                        }))
+                .collect(Collectors.toList());
+
+        return Flux.concat(broadcasts).then();
     }
 
     @Override
@@ -105,8 +128,7 @@ public class RoomWebSocketService implements WebSocketHandler {
     private Function<String, Publisher<? extends Void>> processMessage(WebSocketSession session, String token) {
         return payload -> {
             try {
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode node = mapper.readTree(payload);
+                JsonNode node = objectMapper.readTree(payload);
                 String action = node.get("action").asText().toLowerCase();
 
                 switch (action) {
@@ -117,6 +139,13 @@ public class RoomWebSocketService implements WebSocketHandler {
                         int turnTime = node.get("turnTime").asInt();
 
                         return handleCreateRoom(session, userId, capacity, turnTime);
+                    }
+
+                    case "join":
+                    {
+                        long userId = jwtProvider.extractUserIdFromToken(token);
+                        String roomId = node.get("roomId").asText();
+                        return handleJoinRoom(session, userId, roomId);
                     }
 
                     default:
@@ -152,9 +181,65 @@ public class RoomWebSocketService implements WebSocketHandler {
 
                     Mono<Boolean> saveRoom = redisTemplateForRooms.opsForValue().set(roomId, room);
 
-                    return Mono.when(saveRoom)
-                            .then(session.send(Mono.just(
-                                    session.textMessage("Room created: " + roomId))));
+                    try {
+                        return Mono.when(saveRoom)
+                                .then(session.send(Mono.just(
+                                        session.textMessage(
+                                                objectMapper.writeValueAsString(room)
+                                        )
+                                )));
+                    } catch (JsonProcessingException e) {
+                        return session.send(Mono.just(
+                                session.textMessage("Error creating room: " + e.getMessage())
+                                )
+                        );
+                    }
                 });
     }
+
+    private Mono<Void> handleJoinRoom(WebSocketSession session, long userId, String roomId) {
+        return Mono.fromCallable(() -> userRepository.findById(userId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(optionalUser -> {
+                    if (optionalUser.isEmpty()) {
+                        return session.send(Mono.just(
+                                session.textMessage("User not found")));
+                    }
+
+                    User user = optionalUser.get();
+
+                    return redisTemplateForRooms.opsForValue().get(roomId)
+                            .flatMap(room -> {
+                                if (room == null) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("Room not found: " + roomId)));
+                                }
+
+                                List<User> users = room.getUsers();
+                                if (users.stream().anyMatch(u -> u.getId() == userId)) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("User already in room")));
+                                }
+
+                                users.add(user);
+                                room.setUsers(users);
+
+                                try {
+                                    return redisTemplateForRooms.opsForValue().set(roomId, room)
+                                            .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
+                                            .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
+                                            .then(session.send(Mono.just(
+                                                    session.textMessage(
+                                                            objectMapper.writeValueAsString(room)
+                                                    ))));
+                                } catch (JsonProcessingException e) {
+                                    return session.send(Mono.just(
+                                                    session.textMessage("Error join room: " + e.getMessage())
+                                            )
+                                    );
+                                }
+                            });
+                });
+    }
+
 }
