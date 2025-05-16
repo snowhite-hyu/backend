@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/rooms")
@@ -16,11 +17,12 @@ public class RoomController {
     private final RoomService roomService;
 
     @PostMapping("/{roomId}/start")
-    public ApiResponse<Void> startGame(@PathVariable Long roomId) {
+    public Mono<ApiResponse<Long>> startGame(@PathVariable Long roomId) {
 
-        roomService.startGameByRoomId(roomId);
+        Mono<Long> gameId = roomService.startGameByRoomId(roomId);
         // TODO: socket 연결 및 response
 
-        return ApiResponse.onSuccess();
+        Mono<ApiResponse<Long>> result = gameId.map(ApiResponse::onSuccess);
+        return result;
     }
 }

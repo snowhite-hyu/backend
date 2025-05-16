@@ -21,12 +21,12 @@ public class RoomService {
 
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRoom;
 
-    public Long startGameByRoomId(Long roomId) {
+    public Mono<Long> startGameByRoomId(Long roomId) {
 
         Mono<Room> roomForStart = reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
 
         // Game 객체 생성 후 Redis 저장
-        Mono<Boolean> result = roomForStart
+        Mono<Long> gameId = roomForStart
                 .flatMap(room -> {
                     List<Player> players = room.getUsers().stream()
                             .map(user -> new Player(user.getId(), user.getUsername()))
@@ -34,10 +34,11 @@ public class RoomService {
 
                     Game newGame = new Game(roomId, players);
 
-                    return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + roomId, newGame);
+                    return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + roomId, newGame)
+                            .thenReturn(roomId);
                 });
 
-        return roomId;
+        return gameId;
     }
 
 }
