@@ -20,7 +20,6 @@ public class RoomController {
     public Mono<ApiResponse<Long>> startGame(@PathVariable Long roomId) {
 
         Mono<Long> gameId = roomService.startGameByRoomId(roomId);
-        // TODO: socket 연결 및 response
 
         Mono<ApiResponse<Long>> result = gameId.map(ApiResponse::onSuccess);
         return result;

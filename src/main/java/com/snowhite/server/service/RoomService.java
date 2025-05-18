@@ -14,11 +14,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RoomService {
 
-    private static final String ROOM_PREFIX = "room: ";
-    private static final String GAME_PREFIX = "game: ";
+    private static final String ROOM_PREFIX = "room:";
+    private static final String GAME_PREFIX = "game:";
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
-
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRoom;
 
     public Mono<Long> startGameByRoomId(Long roomId) {
