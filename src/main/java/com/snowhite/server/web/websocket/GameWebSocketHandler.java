@@ -30,6 +30,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
 
+    // 세션 저장 후 처리
     @Override
     public Mono<Void> handle(WebSocketSession session) {
 
@@ -51,6 +52,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 );
     }
 
+    // type에 따라 요청 처리
     public Mono<Void> handlePayload(WebSocketSession session, String payload) {
         try {
             JsonNode node = objectMapper.readTree(payload);
@@ -71,6 +73,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    // 단순 문자열 전송
     public Mono<Void> sendSimpleMessage(WebSocketSession session, String message) {
 
         SimpleMessageResponse simpleMessageResponse = SimpleMessageResponse.of(message);
@@ -85,6 +88,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    // 클래스(DTO 등)를 JSON으로 변환 후 전송
     public Mono<Void> sendObjectMessage(WebSocketSession session, Object object) {
 
         try {
@@ -98,6 +102,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    // Player를 Game에 Join 후 남은 Player 전송
     public Mono<Void> handleJoinGame(WebSocketSession session, Long gameId, Long playerId) {
 
         return gameService.joinPlayer(gameId, playerId)
