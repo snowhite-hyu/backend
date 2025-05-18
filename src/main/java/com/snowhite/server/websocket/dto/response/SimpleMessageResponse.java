@@ -1,4 +1,4 @@
-package com.snowhite.server.web.dto.websocket.response;
+package com.snowhite.server.websocket.dto.response;
 
 public record SimpleMessageResponse(
         String message

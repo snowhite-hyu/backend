@@ -1,7 +1,7 @@
 package com.snowhite.server.config;
 
 import com.snowhite.server.service.RoomWebSocketService;
-import com.snowhite.server.web.websocket.GameWebSocketHandler;
+import com.snowhite.server.websocket.handler.GameWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
