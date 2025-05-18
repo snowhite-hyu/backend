@@ -29,7 +29,7 @@ public class WebSocketConfig {
     public HandlerMapping webSocketMapping() {
         Map<String, WebSocketHandler> map = new ConcurrentHashMap<>();
         map.put("/rooms", roomWebSocketService);
-        map.put("/games", gameWebSocketHandler);
+        map.put("/game", gameWebSocketHandler);
 
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(map);
