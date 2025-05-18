@@ -1,4 +1,4 @@
-package com.snowhite.server.service;
+package com.snowhite.server.websocket.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-public class RoomWebSocketService implements WebSocketHandler {
+public class RoomWebSocketHandler implements WebSocketHandler {
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
@@ -42,7 +42,7 @@ public class RoomWebSocketService implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    public RoomWebSocketService(
+    public RoomWebSocketHandler(
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> redisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")

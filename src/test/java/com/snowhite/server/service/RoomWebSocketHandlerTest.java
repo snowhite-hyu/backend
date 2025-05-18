@@ -35,7 +35,7 @@ import org.springframework.web.reactive.socket.WebSocketMessage;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RoomWebSocketServiceTest {
+class RoomWebSocketHandlerTest {
 
     @Autowired
     private JwtProvider jwtProvider;
