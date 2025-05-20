@@ -64,6 +64,7 @@ public class GameService {
                 );
     }
 
+    // 출발지, 목적지 카드 세팅
     public void initializeNewField(Game game) {
         game.clearFieldAndDeck();
         List<Integer> cardIds = new ArrayList<>();
@@ -72,6 +73,7 @@ public class GameService {
         cardIds.add(63);
         Collections.shuffle(cardIds);
 
+        game.placeCard(3, 0, 0, 0);
         game.placeCard(1, 8, cardIds.get(0), 0);
         game.placeCard(3, 8, cardIds.get(1), 0);
         game.placeCard(5, 8, cardIds.get(2), 0);
