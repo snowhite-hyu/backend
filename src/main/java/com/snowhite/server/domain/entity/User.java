@@ -1,9 +1,11 @@
-package com.snowhite.server.domain;
+package com.snowhite.server.domain.entity;
 
 import com.snowhite.server.domain.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Getter;
 import lombok.Setter;
 
+@Getter
 @Setter
 @Entity
 @Table(name = "users")
