@@ -15,8 +15,10 @@ import reactor.core.publisher.Flux;
 @RequiredArgsConstructor
 public class CardInitializer {
 
+    private static final String CARD_PREFIX = "card:";
+
     private final CardRepository cardRepository;
-    private final ReactiveRedisTemplate<Long, Card> reactiveRedisTemplateForCard;
+    private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
 
     private final EntityManager entityManager;
 
@@ -30,7 +32,7 @@ public class CardInitializer {
         // TODO: 모든 카드 INSERT
 
         Flux.fromIterable(cardRepository.findAll())
-                .flatMap(card -> reactiveRedisTemplateForCard.opsForValue().set(card.getId(), card))
+                .flatMap(card -> reactiveRedisTemplateForCard.opsForValue().set(CARD_PREFIX + card.getId(), card))
                 .then()
                 .block();
         }

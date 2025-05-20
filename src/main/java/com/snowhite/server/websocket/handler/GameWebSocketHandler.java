@@ -3,13 +3,12 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
-import jakarta.annotation.PostConstruct;
+import com.snowhite.server.payload.WsMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -34,17 +33,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    private final ReactiveRedisTemplate<Long, Card> reactiveRedisTemplateForCard;
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
-
-    @PostConstruct
-    public void init() {
-        cardRepository.findAll()
-                .forEach(card -> {
-                    reactiveRedisTemplateForCard.opsForValue().set(card.getId(), card).subscribe();
-                });
-    }
 
     // 세션 저장 후 처리
     @Override
@@ -75,10 +65,16 @@ public class GameWebSocketHandler implements WebSocketHandler {
             String type = node.get("type").asText();
 
             switch (type) {
-                case "join-game":
+                case "join-game": {
                     long gameId = Long.parseLong(node.get("gameId").asText());
                     long playerId = Long.parseLong(node.get("playerId").asText());
                     return handleJoinGame(session, gameId, playerId);
+                }
+
+                case "round-start": {
+                    long gameId = Long.parseLong(node.get("gameId").asText());
+                    return handleStartRound(session, gameId);
+                }
 
                 default:
                     return sendSimpleMessage(session, "undefined type");
@@ -89,7 +85,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
-    public Mono<Void> broadcastMessageToGame(Long gameId, String message) {
+    public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
@@ -98,7 +94,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return reactiveRedisTemplateForSession.opsForValue().get(playerId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
-                                return sendSimpleMessage(sessionToSend, message);
+                                return sendMessage(sessionToSend, type, payload);
                             });
                 })
                 .then();
@@ -120,16 +116,17 @@ public class GameWebSocketHandler implements WebSocketHandler {
     }
 
     // 클래스(DTO 등)를 JSON으로 변환 후 전송
-    public Mono<Void> sendObjectMessage(WebSocketSession session, Object object) {
+    public Mono<Void> sendMessage(WebSocketSession session, String type, Object payload) {
 
+        WsMessage<Object> result = WsMessage.onSuccess(type, payload);
         try {
-            String payload = objectMapper.writeValueAsString(object);
+            String json = objectMapper.writeValueAsString(result);
             return session.send(Mono.just(
-                    session.textMessage(payload)
+                    session.textMessage(json)
             ));
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            return Mono.error(e);   // TODO: 예외 처리
+            return Mono.error(e);
         }
     }
 
@@ -139,11 +136,18 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.joinPlayer(gameId, playerId)
                 .flatMap(playersLeft -> {
                     if (playersLeft == 0) {
-                        return broadcastMessageToGame(gameId, "All Joined");
+                        return broadcastMessageToGame(gameId, "Player-Joined", null);
                     } else {
-                        return broadcastMessageToGame(gameId, playersLeft + " Players Left");
+                        return broadcastMessageToGame(gameId, playersLeft + "Players Left", null);
                     }
                 });
+
+    }
+
+    public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
+
+        return gameService.setupGameForNewRound(gameId)
+                .flatMap(game -> broadcastMessageToGame(gameId, "Game-Started", null));
 
     }
 

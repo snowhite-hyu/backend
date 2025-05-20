@@ -73,17 +73,16 @@ public class RedisConfig {
     }
 
     @Bean
-    public ReactiveRedisTemplate<Long, Card> reactiveRedisTemplateForCard(
+    public ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard(
             ReactiveRedisConnectionFactory factory
     ) {
 
-        RedisSerializer<Long> keySerializer = new GenericToStringSerializer<>(Long.class);
         Jackson2JsonRedisSerializer<Card> valueSerializer = new Jackson2JsonRedisSerializer<>(Card.class);
 
-        RedisSerializationContext<Long, Card> context = RedisSerializationContext
-                .<Long, Card>newSerializationContext(keySerializer)
-                .value(valueSerializer)
-                .build();
+        RedisSerializationContext.RedisSerializationContextBuilder<String, Card> builder =
+                RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
+
+        RedisSerializationContext<String, Card> context = builder.value(valueSerializer).build();
 
         return new ReactiveRedisTemplate<>(factory, context);
     }
