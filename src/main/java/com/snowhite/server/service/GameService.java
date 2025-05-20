@@ -28,10 +28,11 @@ public class GameService {
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
-                .flatMap(game -> {
+                .map(game -> {
                     game.getJoinedPlayerIds().add(playerId);
+                    reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
                     int remain = game.getPlayers().size() - game.getJoinedPlayerIds().size();
-                    return Mono.just(remain);
+                    return remain;
                 });
     }
 
@@ -39,13 +40,9 @@ public class GameService {
     public Mono<Boolean> verifyAllJoined(Long gameId, Long playerId) {
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
-                .flatMap(game -> {
+                .map(game -> {
                     game.getJoinedPlayerIds().add(playerId);
-                    if (game.getJoinedPlayerIds().size() == game.getPlayers().size()) {
-                        return Mono.just(true);
-                    } else {
-                        return Mono.just(false);
-                    }
+                    return game.getJoinedPlayerIds().size() == game.getPlayers().size();
                 });
     }
 

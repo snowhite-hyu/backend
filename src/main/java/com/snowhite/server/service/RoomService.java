@@ -28,12 +28,11 @@ public class RoomService {
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRoom;
 
-
     public Mono<Long> startGameByRoomId(Long roomId) {
 
         Mono<Room> roomForStart = reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
 
-        Mono<Long> gameId = roomForStart
+        return roomForStart
                 .flatMap(room -> {
                     List<Player> players = room.getUsers().stream()
                             .map(user -> new Player(user.getId(), user.getUsername()))
@@ -44,8 +43,6 @@ public class RoomService {
                     return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + roomId, newGame)
                             .thenReturn(roomId);
                 });
-
-        return gameId;
     }
 
     public Mono<GetRoomResponse> getRooms() {
@@ -53,12 +50,11 @@ public class RoomService {
         return scanRoomKeys()
                 .flatMap(roomId -> reactiveRedisTemplateForRoom.opsForValue().get(roomId))
                 .collectList()
-                .flatMap(rooms -> {
+                .map(rooms -> {
                     if (rooms == null) {
                         rooms = Collections.emptyList();
                     }
-                    GetRoomResponse.of(rooms);
-                    return Mono.just(GetRoomResponse.of(rooms));
+                    return GetRoomResponse.of(rooms);
                 });
     }
 
