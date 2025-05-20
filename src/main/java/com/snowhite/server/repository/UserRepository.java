@@ -1,5 +1,6 @@
-package com.snowhite.server.domain;
+package com.snowhite.server.repository;
 
+import com.snowhite.server.domain.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

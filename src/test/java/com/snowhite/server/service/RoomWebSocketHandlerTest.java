@@ -4,10 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.snowhite.server.config.JwtProvider;
-import com.snowhite.server.domain.Room;
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
+import com.snowhite.server.domain.session.Room;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,7 +35,7 @@ import org.springframework.web.reactive.socket.WebSocketMessage;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RoomWebSocketServiceTest {
+class RoomWebSocketHandlerTest {
 
     @Autowired
     private JwtProvider jwtProvider;
