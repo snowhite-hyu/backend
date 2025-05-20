@@ -37,8 +37,8 @@ public class RoomService {
                     List<Player> players = room.getUsers().stream()
                             .map(user -> new Player(user.getId(), user.getUsername()))
                             .toList();
-
-                    Game newGame = new Game(roomId, players);
+                    int turnTime = room.getTurnTime();
+                    Game newGame = new Game(roomId, players, turnTime);
 
                     return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + roomId, newGame)
                             .thenReturn(roomId);

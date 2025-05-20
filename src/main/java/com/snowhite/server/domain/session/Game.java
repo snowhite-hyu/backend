@@ -22,7 +22,7 @@ public class Game {
     private long currentTurnPlayerId;
     private int turnTime;   // second
 
-    public Game(long gameId, List<Player> players) {
+    public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
         this.players = players;
         this.joinedPlayerIds = new ArrayList<>();
@@ -31,7 +31,7 @@ public class Game {
         field = new Integer[7][9][2];
         deck = new ArrayList<>();
         currentTurnPlayerId = 0;
-        turnTime = 0;
+        this.turnTime = turnTime;
     }
 
     public void clearFieldAndDeck() {
