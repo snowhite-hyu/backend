@@ -1,6 +1,8 @@
-package com.snowhite.server.web.controller;
+package com.snowhite.server.config;
 
-import com.snowhite.server.service.RoomWebSocketService;
+import com.snowhite.server.websocket.handler.RoomWebSocketHandler;
+import com.snowhite.server.websocket.handler.GameWebSocketHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.HandlerMapping;
@@ -12,13 +14,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
-public class RoomWebSocketController {
+@RequiredArgsConstructor
+public class WebSocketConfig {
 
-    private final RoomWebSocketService roomWebSocketService;
-
-    public RoomWebSocketController(RoomWebSocketService roomWebSocketService) {
-        this.roomWebSocketService = roomWebSocketService;
-    }
+    private final RoomWebSocketHandler roomWebSocketHandler;
+    private final GameWebSocketHandler gameWebSocketHandler;
 
     @Bean
     public WebSocketHandlerAdapter handlerAdapter() {
@@ -28,11 +28,13 @@ public class RoomWebSocketController {
     @Bean
     public HandlerMapping webSocketMapping() {
         Map<String, WebSocketHandler> map = new ConcurrentHashMap<>();
-        map.put("/rooms", roomWebSocketService);
+        map.put("/rooms", roomWebSocketHandler);
+        map.put("/game", gameWebSocketHandler);
 
-        return new SimpleUrlHandlerMapping() {{
-            setOrder(10);
-            setUrlMap(map);
-        }};
+        SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
+        mapping.setUrlMap(map);
+        mapping.setOrder(10);
+
+        return mapping;
     }
 }
