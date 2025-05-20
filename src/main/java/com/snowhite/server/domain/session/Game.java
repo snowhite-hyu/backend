@@ -98,7 +98,7 @@ public class Game {
         return currentTurnPlayerId;
     }
 
-    public long placeCard(int row, int column, int cardId, int isFlipped) {
+    public int placeCard(int row, int column, int cardId, int isFlipped) {
         this.field[row][column][0] = cardId;
         this.field[row][column][1] = isFlipped;
         return cardId;

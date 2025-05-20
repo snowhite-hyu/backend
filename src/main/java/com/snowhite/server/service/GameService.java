@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -55,11 +57,10 @@ public class GameService {
                         .collectList()
                         .flatMap(cardIdList -> {
                             game.incrementRoundAndChangeGameState();
-                            game.clearFieldAndDeck();
-                            game.placeCard(3, 0, 0, 0);
                             game.addCardsToDeck(cardIdList);
                             game.shufflePlayers();
                             game.nextTurn();
+                            initializeNewField(game);
                             initializePlayerRole(game);
                             initializeAllPlayerHands(game);
 
@@ -68,6 +69,20 @@ public class GameService {
                                     .thenReturn(game);
                         })
                 );
+    }
+
+    public void initializeNewField(Game game) {
+        game.clearFieldAndDeck();
+        List<Integer> cardIds = new ArrayList<>();
+        cardIds.add(61);
+        cardIds.add(62);
+        cardIds.add(63);
+        Collections.shuffle(cardIds);
+
+        game.placeCard(3, 8, cardIds.get(0), 0);
+        game.placeCard(3, 0, cardIds.get(1), 0);
+        game.placeCard(3, 1, cardIds.get(2), 0);
+
     }
 
     // 모든 player의 손패 초기화
