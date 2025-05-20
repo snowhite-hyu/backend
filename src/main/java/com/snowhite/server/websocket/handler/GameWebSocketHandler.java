@@ -86,6 +86,24 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    // Player를 Game에 Join 후 남은 Player 전송
+    public Mono<Void> handleJoinGame(WebSocketSession session, Long gameId, Long playerId) {
+
+        return gameService.joinPlayer(gameId, playerId)
+                .flatMap(playersLeft -> {
+                    PlayerJoinedResponse payload = PlayerJoinedResponse.of(playersLeft);
+                    return broadcastMessageToGame(gameId, "Game-Joined", payload);
+                });
+    }
+
+    public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
+
+        return gameService.setupGameForNewRound(gameId)
+                .flatMap(game -> broadcastMessageToGame(gameId, "Game-Started", game));
+
+    }
+
+    // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
@@ -130,22 +148,4 @@ public class GameWebSocketHandler implements WebSocketHandler {
             return Mono.error(e);
         }
     }
-
-    // Player를 Game에 Join 후 남은 Player 전송
-    public Mono<Void> handleJoinGame(WebSocketSession session, Long gameId, Long playerId) {
-
-        return gameService.joinPlayer(gameId, playerId)
-                .flatMap(playersLeft -> {
-                    PlayerJoinedResponse payload = PlayerJoinedResponse.of(playersLeft);
-                    return broadcastMessageToGame(gameId, "Game-Joined", payload);
-                });
-    }
-
-    public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
-
-        return gameService.setupGameForNewRound(gameId)
-                .flatMap(game -> broadcastMessageToGame(gameId, "Game-Started", game));
-
-    }
-
 }

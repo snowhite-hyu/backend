@@ -47,6 +47,7 @@ public class GameService {
                 });
     }
 
+    // 새로운 round 시작을 위한 모든 field 초기화
     public Mono<Game> setupGameForNewRound(Long gameId) {
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
                 .flatMap(game -> getAllCardsFromRedis()
@@ -69,6 +70,7 @@ public class GameService {
                 );
     }
 
+    // 모든 player의 손패 초기화
     private void initializeAllPlayerHands(Game game) {
         int playerCount = game.getPlayerCount();
         int cardNumber = 0;
@@ -96,6 +98,7 @@ public class GameService {
         }
     }
 
+    // 모든 player의 역할 초기화
     private void initializePlayerRole(Game game) {
         int playerCount = game.getPlayerCount();
         int dwarf = 0;
@@ -140,6 +143,7 @@ public class GameService {
         game.distributeRoles(dwarf, saboteur);
     }
 
+    // 게임에 필요한 카드 정보 가져오기
     private Flux<Card> getAllCardsFromRedis() {
         return reactiveRedisTemplateForCard
                 .scan(ScanOptions.scanOptions().match(CARD_PREFIX).build())
