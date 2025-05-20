@@ -37,11 +37,13 @@ class LobbyServiceTest {
     @Autowired
     private WebTestClient webTestClient;
 
+    private static final String ROOM_PREFIX = "room:";
+
     @BeforeEach
     void setUp() {
 
-        String roomId1 = "room:" + "003";
-        String roomId2 = "room:" + "017";
+        Long roomId1 = 3L;
+        Long roomId2 = 17L;
 
         User user1 = new User();
         user1.setId(1);
@@ -56,15 +58,17 @@ class LobbyServiceTest {
         Room room1 = new Room(roomId1, user1, List.of(user1, user2), 10, 30, false);
         Room room2 = new Room(roomId2, user3, List.of(user3, user4), 20, 30, true);
 
-        redisTemplateForRooms.opsForValue().set(roomId1, room1).block();
-        redisTemplateForRooms.opsForValue().set(roomId2, room2).block();
+        redisTemplateForRooms.opsForValue().set(ROOM_PREFIX + String.valueOf(roomId1), room1).block();
+        redisTemplateForRooms.opsForValue().set(ROOM_PREFIX + String.valueOf(roomId2), room2).block();
 
     }
 
     @AfterEach
     void tearDown() {
-        redisTemplateForRooms.delete("room:003").block();
-        redisTemplateForRooms.delete("room:017").block();
+        redisTemplateForRooms.keys("room:*")
+                .flatMap(redisTemplateForRooms::delete)
+                .then()
+                .block();
     }
 
 
@@ -89,7 +93,7 @@ class LobbyServiceTest {
                     assertEquals(2, rooms.size());
 
                     Room foundRoom = rooms.stream()
-                            .filter(r -> r.getRoomId().equals("room:003"))
+                            .filter(r -> r.getRoomId().equals(3L))
                             .findAny()
                             .orElseThrow();
 
@@ -106,7 +110,7 @@ class LobbyServiceTest {
                         assertEquals(expectedUsers.get(i).getId(), actualUsers.get(i).getId());
                     }
 
-                    assertEquals("room:003", foundRoom.getRoomId());
+                    assertEquals(3L, foundRoom.getRoomId());
 
                     boolean containsUser1 = actualUsers.stream().anyMatch(u -> u.getId() == 1);
                     assertTrue(containsUser1);
@@ -120,7 +124,7 @@ class LobbyServiceTest {
                 .flatMap(redisTemplateForRooms::delete)
                 .blockLast();
 
-        webTestClient.get().uri("/lobby")
+        webTestClient.get().uri("/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
