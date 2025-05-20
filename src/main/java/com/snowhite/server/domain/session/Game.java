@@ -12,7 +12,7 @@ public class Game {
     private long gameId;
     private List<Player> players;
     private List<Long> joinedPlayerIds;
-    private Integer[][] field;
+    private Integer[][][] field;
     private List<Integer> deck;
     private long currentTurnPlayerId;
     private int turnTime;   // second
@@ -21,7 +21,7 @@ public class Game {
         this.gameId = gameId;
         this.players = players;
         this.joinedPlayerIds = new ArrayList<>();
-        field = new Integer[7][9];
+        field = new Integer[7][9][2];
         deck = new ArrayList<>();
         currentTurnPlayerId = 0;
         turnTime = 0;

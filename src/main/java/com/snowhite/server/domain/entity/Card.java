@@ -19,6 +19,21 @@ public class Card extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private CardType type;
 
+    @Column(name = "upOpen")
+    private boolean upOpen;
+
+    @Column(name = "upOpen")
+    private boolean downOpen;
+
+    @Column(name = "upOpen")
+    private boolean leftOpen;
+
+    @Column(name = "upOpen")
+    private boolean rightOpen;
+
+    @Column(name = "upOpen")
+    private boolean middleOpen;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "image_id")
     private File file;
