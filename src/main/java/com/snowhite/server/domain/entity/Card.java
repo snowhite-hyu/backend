@@ -37,8 +37,4 @@ public class Card extends BaseEntity implements Serializable {
 
     @Column(name = "middle_open")
     private boolean middleOpen;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "image_id")
-    private File file;
 }
