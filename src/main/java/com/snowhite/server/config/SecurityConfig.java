@@ -1,7 +1,8 @@
 package com.snowhite.server.config;
 
-import com.snowhite.server.security.CustomAccessDeniedHandler;
-import com.snowhite.server.security.CustomAuthenticationEntryPoint;
+import com.snowhite.server.security.filter.JwtWebFilter;
+import com.snowhite.server.security.handler.CustomAccessDeniedHandler;
+import com.snowhite.server.security.handler.CustomAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,7 +38,8 @@ public class SecurityConfig {
                                 .pathMatchers(
                                         "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
                                         "/swagger-resources/**", "/webjars/**",
-                                        "/users/login", "/users/register", "/users/check-email","/users/check-login"
+                                        "/users/login", "/users/register", "/users/check-email","/users/check-login",
+                                        "/lobby", "/rooms"
                                 ).permitAll()
                                 .anyExchange().authenticated()
                 )

@@ -1,4 +1,4 @@
-package com.snowhite.server.security;
+package com.snowhite.server.security.handler;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

@@ -1,7 +1,8 @@
-package com.snowhite.server.config;
+package com.snowhite.server.security.filter;
 
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -41,7 +42,7 @@ public class JwtWebFilter implements WebFilter {
             String token = accessToken.substring(7);
             if (jwtProvider.isTokenValid(token)) {
                 String userId = jwtProvider.extractClaim(token, Claims::getId);
-                Optional<User> user = userRepository.findById(userId);
+                Optional<User> user = userRepository.findById(Long.parseLong(userId));
                 var authentication = new UsernamePasswordAuthenticationToken(
                         userId,
                         null,

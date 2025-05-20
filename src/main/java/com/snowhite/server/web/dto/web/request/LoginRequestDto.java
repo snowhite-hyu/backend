@@ -1,10 +1,11 @@
-package com.snowhite.server.dto;
+package com.snowhite.server.web.dto.web.request;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 @Getter
-public class EmailDto {
+public class LoginRequestDto {
     private String email;
+    private String password;
 }
