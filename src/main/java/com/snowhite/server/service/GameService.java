@@ -72,9 +72,9 @@ public class GameService {
         cardIds.add(63);
         Collections.shuffle(cardIds);
 
-        game.placeCard(3, 8, cardIds.get(0), 0);
-        game.placeCard(3, 0, cardIds.get(1), 0);
-        game.placeCard(3, 1, cardIds.get(2), 0);
+        game.placeCard(1, 8, cardIds.get(0), 0);
+        game.placeCard(3, 8, cardIds.get(1), 0);
+        game.placeCard(5, 8, cardIds.get(2), 0);
 
     }
 
