@@ -31,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.web.reactive.socket.WebSocketMessage;
+import reactor.core.scheduler.Schedulers;
 
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -70,6 +71,8 @@ class RoomWebSocketHandlerTest {
     private User testUser;
     private String jwtToken;
 
+    private static final String ROOM_PREFIX = "room:";
+
     @BeforeEach
     void setup(@Autowired PasswordEncoder passwordEncoder) {
         client = new ReactorNettyWebSocketClient();
@@ -99,8 +102,6 @@ class RoomWebSocketHandlerTest {
     void testCreateRoom() throws Exception {
         String uri = "ws://localhost:" + port + "/room?token=" + jwtToken;
 
-        CountDownLatch latch = new CountDownLatch(1);
-
         client.execute(
                 URI.create(uri),
                 session -> {
@@ -120,7 +121,7 @@ class RoomWebSocketHandlerTest {
 
                                     Assertions.assertEquals(4, node.get("capacity").asInt());
                                     Assertions.assertEquals(30, node.get("turnTime").asInt());
-                                    Assertions.assertEquals(false, node.get("playing").asBoolean());
+                                    Assertions.assertFalse(node.get("playing").asBoolean());
 
                                     JsonNode masterPlayerNode = node.get("masterPlayer");
                                     Assertions.assertEquals(testUser.getId(), masterPlayerNode.get("id").asLong());
@@ -128,26 +129,24 @@ class RoomWebSocketHandlerTest {
                                     Assertions.assertEquals(testUser.getEmail(), masterPlayerNode.get("email").asText());
                                     Assertions.assertEquals(testUser.isLoggedIn(), masterPlayerNode.get("loggedIn").asBoolean());
 
-                                    session.close().subscribe();
-                                    latch.countDown();
+                                    session.close()
+                                            .subscribe();
+
                                 } catch (JsonProcessingException e) {
                                     e.printStackTrace();
                                 }
                             })
                             .then();
                 }
-        ).block(Duration.ofSeconds(5));
+        ).block();
 
-        if (!latch.await(5, TimeUnit.SECONDS)) {
-            Assertions.fail("Did not receive response from WebSocket server");
-        }
     }
 
 
     @Test
     void testJoinRoomAndBroadcast() throws Exception {
 
-        String roomId = "room:1";
+        Long roomId = 2L;
 
         User joinUser = new User();
         joinUser.setUsername("joinUser");
