@@ -3,10 +3,14 @@ package com.snowhite.server.domain.entity;
 import com.snowhite.server.domain.common.BaseEntity;
 import com.snowhite.server.domain.enums.CardType;
 import jakarta.persistence.*;
+import lombok.Getter;
+
+import java.io.Serializable;
 
 @Entity
 @Table(name = "cards")
-public class Card extends BaseEntity {
+@Getter
+public class Card extends BaseEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,19 +23,19 @@ public class Card extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private CardType type;
 
-    @Column(name = "upOpen")
+    @Column(name = "up_open")
     private boolean upOpen;
 
-    @Column(name = "upOpen")
+    @Column(name = "down_open")
     private boolean downOpen;
 
-    @Column(name = "upOpen")
+    @Column(name = "left_open")
     private boolean leftOpen;
 
-    @Column(name = "upOpen")
+    @Column(name = "right_open")
     private boolean rightOpen;
 
-    @Column(name = "upOpen")
+    @Column(name = "middle_open")
     private boolean middleOpen;
 
     @OneToOne(fetch = FetchType.LAZY)

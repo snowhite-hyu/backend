@@ -1,6 +1,7 @@
 package com.snowhite.server.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Room;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,6 +68,22 @@ public class RedisConfig {
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
 
         RedisSerializationContext<String, Game> context = builder.value(serializer).build();
+
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<Long, Card> reactiveRedisTemplateForCard(
+            ReactiveRedisConnectionFactory factory
+    ) {
+
+        RedisSerializer<Long> keySerializer = new GenericToStringSerializer<>(Long.class);
+        Jackson2JsonRedisSerializer<Card> valueSerializer = new Jackson2JsonRedisSerializer<>(Card.class);
+
+        RedisSerializationContext<Long, Card> context = RedisSerializationContext
+                .<Long, Card>newSerializationContext(keySerializer)
+                .value(valueSerializer)
+                .build();
 
         return new ReactiveRedisTemplate<>(factory, context);
     }

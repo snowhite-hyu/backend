@@ -3,10 +3,13 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
+import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -24,14 +27,24 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     private static final String GAME_PREFIX = "game:";
 
+    private final CardRepository cardRepository;
     private final GameService gameService;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
+    private final ReactiveRedisTemplate<Long, Card> reactiveRedisTemplateForCard;
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
+
+    @PostConstruct
+    public void init() {
+        cardRepository.findAll()
+                .forEach(card -> {
+                    reactiveRedisTemplateForCard.opsForValue().set(card.getId(), card).subscribe();
+                });
+    }
 
     // 세션 저장 후 처리
     @Override
