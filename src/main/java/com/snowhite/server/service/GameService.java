@@ -37,13 +37,9 @@ public class GameService {
     }
 
     // 해당 game에 모든 player가 join했는지 확인
-    public Mono<Boolean> verifyAllJoined(Long gameId, Long playerId) {
-
+    public Mono<Boolean> verifyAllJoined(Long gameId) {
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
-                .map(game -> {
-                    game.getJoinedPlayerIds().add(playerId);
-                    return game.getJoinedPlayerIds().size() == game.getPlayers().size();
-                });
+                .map(game -> game.getJoinedPlayerIds().size() == game.getPlayers().size());
     }
 
     // 새로운 round 시작을 위한 모든 field 초기화
