@@ -1,7 +1,6 @@
 package com.snowhite.server.domain.session;
 
-import com.snowhite.server.domain.ActionCard;
-import com.snowhite.server.domain.PlayerState;
+import com.snowhite.server.domain.enums.PlayerState;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -45,5 +44,4 @@ public class Player {
         this.gold += gold;
         return this.gold;
     }
-
 }
