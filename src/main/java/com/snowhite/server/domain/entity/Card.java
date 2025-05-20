@@ -14,7 +14,7 @@ import java.io.Serializable;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Card extends BaseEntity implements Serializable {
+public class Card implements Serializable {
 
     public Card(int id, String name, CardType type) {
         this.id = id;
@@ -23,7 +23,6 @@ public class Card extends BaseEntity implements Serializable {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
     @Column(name = "card_name", nullable = false)

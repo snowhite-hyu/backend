@@ -62,7 +62,7 @@ public class GameService {
 
     // 출발지, 목적지 카드 세팅
     public void initializeNewField(Game game) {
-        game.clearFieldAndDeck();
+        game.clearField();
         List<Integer> cardIds = new ArrayList<>();
         cardIds.add(61);
         cardIds.add(62);

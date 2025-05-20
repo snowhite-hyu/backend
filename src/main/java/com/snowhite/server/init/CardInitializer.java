@@ -30,8 +30,6 @@ public class CardInitializer {
     @EventListener(ApplicationReadyEvent.class)
     public void initializeCards() {
 
-        cardRepository.deleteAll();
-
         List<Card> cardList = List.of(
                 new Card(0, "start", CardType.START),
                 new Card(1, "cave1", CardType.CAVE, true, true, true, false, true),
@@ -90,6 +88,7 @@ public class CardInitializer {
                 new Card(111, "broken - minecart", CardType.ACTION)
         );
 
+        cardRepository.deleteAll();
         cardRepository.saveAll(cardList);
         cardRepository.findAll().forEach(card -> {
             reactiveRedisTemplateForCard.opsForValue()

@@ -39,7 +39,7 @@ public class Game {
         clearDeck();
     }
 
-    private void clearField() {
+    public void clearField() {
         this.field = new Integer[7][9][2];
     }
 
