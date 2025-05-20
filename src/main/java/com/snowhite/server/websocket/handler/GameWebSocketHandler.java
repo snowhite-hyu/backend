@@ -7,6 +7,7 @@ import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
+import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
 import lombok.RequiredArgsConstructor;
@@ -77,7 +78,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 }
 
                 default:
-                    return sendSimpleMessage(session, "undefined type");
+                    return sendMessage(session, "error", null);
             }
         } catch (JsonProcessingException e) {
             e.printStackTrace();
@@ -115,7 +116,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
-    // 클래스(DTO 등)를 JSON으로 변환 후 전송
+    // type, payload 동시에 직렬화 후 메시지 전송
     public Mono<Void> sendMessage(WebSocketSession session, String type, Object payload) {
 
         WsMessage<Object> result = WsMessage.onSuccess(type, payload);
@@ -135,13 +136,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.joinPlayer(gameId, playerId)
                 .flatMap(playersLeft -> {
-                    if (playersLeft == 0) {
-                        return broadcastMessageToGame(gameId, "Player-Joined", null);
-                    } else {
-                        return broadcastMessageToGame(gameId, playersLeft + "Players Left", null);
-                    }
+                    PlayerJoinedResponse payload = PlayerJoinedResponse.of(playersLeft);
+                    return broadcastMessageToGame(gameId, "Game-Joined", payload);
                 });
-
     }
 
     public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
