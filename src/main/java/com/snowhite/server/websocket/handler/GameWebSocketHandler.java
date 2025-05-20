@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class GameWebSocketHandler implements WebSocketHandler {
+
+    private static final String GAME_PREFIX = "game:";
 
     private final GameService gameService;
     private final JwtProvider jwtProvider;
@@ -73,6 +76,21 @@ public class GameWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    public Mono<Void> broadcastMessageToGame(Long gameId, String message) {
+
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+                .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
+                .flatMap(player -> {
+                    Long playerId = player.getPlayerId();
+                    return reactiveRedisTemplateForSession.opsForValue().get(playerId)
+                            .flatMap(sessionId -> {
+                                WebSocketSession sessionToSend = sessionMap.get(sessionId);
+                                return sendSimpleMessage(sessionToSend, message);
+                            });
+                })
+                .then();
+    }
+
     // 단순 문자열 전송
     public Mono<Void> sendSimpleMessage(WebSocketSession session, String message) {
 
@@ -108,9 +126,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.joinPlayer(gameId, playerId)
                 .flatMap(playersLeft -> {
                     if (playersLeft == 0) {
-                        return sendSimpleMessage(session, "All Joined");
+                        return broadcastMessageToGame(gameId, "All Joined");
                     } else {
-                        return sendSimpleMessage(session, playersLeft + " Players Left");
+                        return broadcastMessageToGame(gameId, playersLeft + " Players Left");
                     }
                 });
 
