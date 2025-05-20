@@ -44,24 +44,20 @@ public class GameService {
 
     // 새로운 round 시작을 위한 모든 field 초기화
     public Mono<Game> setupGameForNewRound(Long gameId) {
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
-                .flatMap(game -> getAllCardsFromRedis()
-                        .map(Card::getId)
-                        .collectList()
-                        .flatMap(cardIdList -> {
-                            game.incrementRoundAndChangeGameState();
-                            game.addCardsToDeck(cardIdList);
-                            game.shufflePlayers();
-                            game.nextTurn();
-                            initializeNewField(game);
-                            initializePlayerRole(game);
-                            initializeAllPlayerHands(game);
 
-                            return reactiveRedisTemplateForGame.opsForValue()
-                                    .set(GAME_PREFIX + gameId, game)
-                                    .thenReturn(game);
-                        })
-                );
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+                .flatMap(game -> {
+                    game.incrementRoundAndChangeGameState();
+                    game.setNewDeck();
+                    game.shufflePlayers();
+                    game.nextTurn();
+                    initializeNewField(game);
+                    initializePlayerRole(game);
+                    initializeAllPlayerHands(game);
+                    return reactiveRedisTemplateForGame.opsForValue()
+                            .set(GAME_PREFIX + gameId, game)
+                            .thenReturn(game);
+                });
     }
 
     // 출발지, 목적지 카드 세팅

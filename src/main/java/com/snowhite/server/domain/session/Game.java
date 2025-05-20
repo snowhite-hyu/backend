@@ -35,8 +35,16 @@ public class Game {
     }
 
     public void clearFieldAndDeck() {
+        clearField();
+        clearDeck();
+    }
+
+    private void clearField() {
         this.field = new Integer[7][9][2];
-        deck = new ArrayList<>();
+    }
+
+    private void clearDeck() {
+        this.deck = new ArrayList<>();
     }
 
     public int incrementRoundAndChangeGameState() {
@@ -122,6 +130,29 @@ public class Game {
         return this.players.size();
     }
 
+    public void setNewDeck() {
+        clearDeck();
+        for (int i = 0; i <= 40; i++) {
+            deck.add(i);    // 굴
+        }
+        for (int i = 0; i < 2; i++) {
+            deck.add(101);  // 곡괭이 수리
+            deck.add(102);  // 랜턴 수리
+            deck.add(103);  // 수레 수리
+        }
+        deck.add(104);  // 곡괭이, 랜턴 수리
+        deck.add(105);  // 곡괭이, 수레 수리
+        deck.add(106);  // 랜턴, 수레 수리
+        for (int i = 0; i < 3; i++) {
+            deck.add(107);  // 낙석
+            deck.add(109);  // 곡괭이 파손
+            deck.add(110);  // 랜턴 파손
+            deck.add(111);  // 수레 파손
+        }
+        for (int i = 0; i < 6; i++) {
+            deck.add(108);  // 지도
+        }
+    }
 
 
 }

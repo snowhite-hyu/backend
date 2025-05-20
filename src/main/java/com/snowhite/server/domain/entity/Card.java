@@ -3,14 +3,24 @@ package com.snowhite.server.domain.entity;
 import com.snowhite.server.domain.common.BaseEntity;
 import com.snowhite.server.domain.enums.CardType;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
 @Entity
 @Table(name = "cards")
 @Getter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Card extends BaseEntity implements Serializable {
+
+    public Card(int id, String name, CardType type) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
