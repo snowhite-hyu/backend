@@ -228,7 +228,7 @@ public class RoomWebSocketService implements WebSocketHandler {
                                     return redisTemplateForRooms.opsForValue().set(roomId, room)
                                             .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
                                             .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
-                                            .then(session.send(Mono.just(
+                                            .and(session.send(Mono.just(
                                                     session.textMessage(
                                                             objectMapper.writeValueAsString(room)
                                                     ))));
