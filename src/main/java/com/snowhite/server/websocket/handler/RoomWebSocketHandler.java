@@ -1,12 +1,12 @@
-package com.snowhite.server.service;
+package com.snowhite.server.websocket.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.config.JwtProvider;
-import com.snowhite.server.domain.Room;
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
+import com.snowhite.server.domain.session.Room;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-public class RoomWebSocketService implements WebSocketHandler {
+public class RoomWebSocketHandler implements WebSocketHandler {
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
@@ -42,7 +42,7 @@ public class RoomWebSocketService implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    public RoomWebSocketService(
+    public RoomWebSocketHandler(
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> redisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")
@@ -235,7 +235,7 @@ public class RoomWebSocketService implements WebSocketHandler {
                                     return redisTemplateForRooms.opsForValue().set(roomId, room)
                                             .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
                                             .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
-                                            .then(session.send(Mono.just(
+                                            .and(session.send(Mono.just(
                                                     session.textMessage(
                                                             objectMapper.writeValueAsString(room)
                                                     ))));

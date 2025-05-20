@@ -1,14 +1,14 @@
 package com.snowhite.server.service;
 
-import com.snowhite.server.config.JwtProvider;
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
-import com.snowhite.server.dto.LoginRequestDto;
-import com.snowhite.server.dto.LoginResponseDto;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
+import com.snowhite.server.web.dto.web.request.LoginRequestDto;
+import com.snowhite.server.web.dto.web.response.LoginResponseDto;
 import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.payload.code.status.ErrorStatus;
-import com.snowhite.server.dto.EmailDto;
-import com.snowhite.server.dto.RegisterDto;
+import com.snowhite.server.web.dto.EmailDto;
+import com.snowhite.server.web.dto.web.request.RegisterDto;
 import com.snowhite.server.payload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -29,14 +29,14 @@ public class UserService {
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final JwtProvider jwtProvider;
 
-    public Mono<ApiResponse<String>> login(final LoginRequestDto loginRequestDto) {
+    public Mono<String> login(final LoginRequestDto loginRequestDto) {
         User user = userRepository.findByEmail(loginRequestDto.getEmail());
         if(!bCryptPasswordEncoder.matches(loginRequestDto.getPassword(), user.getPassword()))
             throw new BadCredentialsException(ErrorStatus._BAD_REQUEST.toString());
         String accessToken = jwtProvider.generateToken(user.getId());
         LoginResponseDto.builder().token(accessToken).build();
         user.setLoggedIn(true);
-        return Mono.just(ApiResponse.onSuccess("access token: " + accessToken));
+        return Mono.just(accessToken);
     }
 
     public Mono<ApiResponse<String>> checkLogin(Authentication authentication, ServerHttpRequest request) {

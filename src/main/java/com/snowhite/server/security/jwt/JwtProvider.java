@@ -1,4 +1,4 @@
-package com.snowhite.server.config;
+package com.snowhite.server.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -103,4 +105,22 @@ public class JwtProvider {
         return Long.parseLong(claims.getId());
     }
 
+    public String extractTokenFromURI(String uri) {
+        try {
+            URI parsedUri = new URI(uri);
+            String query = parsedUri.getQuery();
+            if (query != null) {
+                for (String key : query.split("&")) {
+                    String[] pair = key.split("=");
+                    if (pair.length == 2 && pair[0].equals("token")) {
+                        return pair[1];
+                    }
+                }
+            }
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return null;
+    }
 }

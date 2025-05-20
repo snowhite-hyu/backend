@@ -1,5 +1,5 @@
-package com.snowhite.server.domain;
-
+package com.snowhite.server.domain.session;
+import com.snowhite.server.domain.entity.User;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

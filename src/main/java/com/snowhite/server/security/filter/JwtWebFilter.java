@@ -1,7 +1,8 @@
-package com.snowhite.server.config;
+package com.snowhite.server.security.filter;
 
-import com.snowhite.server.domain.User;
-import com.snowhite.server.domain.UserRepository;
+import com.snowhite.server.security.jwt.JwtProvider;
+import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -26,7 +27,7 @@ public class JwtWebFilter implements WebFilter {
     private static final List<String> EXCLUDE_URLS = List.of(
             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
             "/swagger-resources/**", "/webjars/**",
-            "/login", "/register", "/checkname"
+            "/users/login", "/users/register", "/users/check-email","/users/check-login"
     );
 
     @Override
