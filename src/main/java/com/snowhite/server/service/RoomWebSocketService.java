@@ -148,6 +148,13 @@ public class RoomWebSocketService implements WebSocketHandler {
                         return handleJoinRoom(session, userId, roomId);
                     }
 
+                    case "quit":
+                    {
+                        long userId = jwtProvider.extractUserIdFromToken(token);
+                        String roomId = node.get("roomId").asText();
+                        return handleQuitRoom(session, userId, roomId);
+                    }
+
                     default:
                     {
                         return session.send(Mono.just(
@@ -241,5 +248,80 @@ public class RoomWebSocketService implements WebSocketHandler {
                             });
                 });
     }
+
+    private Mono<Void> handleQuitRoom(WebSocketSession session, long userId, String roomId) {
+        return Mono.fromCallable(() -> userRepository.findById(userId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(optionalUser -> {
+                    if (optionalUser.isEmpty()) {
+                        return session.send(Mono.just(
+                                session.textMessage("User not found")));
+                    }
+
+                    User user = optionalUser.get();
+
+                    return redisTemplateForRooms.opsForValue().get(roomId)
+                            .flatMap(room -> {
+                                if (room == null) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("Room not found: " + roomId)));
+                                }
+
+                                List<User> users = room.getUsers();
+
+                                boolean isInRoom = (users.stream().anyMatch(u -> u.getId() == userId));
+
+                                if (!isInRoom) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("User not in room")));
+                                }
+
+                                boolean isMasterPlayer = users.stream().anyMatch(u ->
+                                        u.getId() == room.getMasterPlayer().getId()
+                                        );
+
+                                if (isMasterPlayer && users.size() > 1) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("Master player can not quit room while other users remain")
+                                    ));
+                                }
+
+                                users.removeIf(u -> u.getId() == userId);
+
+                                room.setUsers(users);
+
+                                Mono<Boolean> roomQuit;
+
+                                if (isMasterPlayer && users.isEmpty()) {
+                                    roomQuit = redisTemplateForRooms.delete(roomId).thenReturn(Boolean.TRUE);
+                                } else {
+                                    roomQuit = redisTemplateForRooms.opsForValue().set(roomId, room);
+                                }
+
+                                try {
+                                    return roomQuit
+                                            .then(redisTemplateForSessionIds.delete(userId))
+                                            .then(
+                                                    isMasterPlayer && users.isEmpty() ?
+                                                            session.send(Mono.just(
+                                                                    session.textMessage("Room is deleted and user left the room")
+                                                            )) :
+                                                            broadcastToRoom(room, user.getUsername() + " left the room")
+                                                                    .then(session.send(Mono.just(
+                                                                            session.textMessage(objectMapper.writeValueAsString(room))
+                                                                    )))
+                                            ).then(Mono.defer(() ->
+                                                    sessionMap.remove(session.getId())
+                                                            .close().then())
+                                            );
+                                } catch (JsonProcessingException e) {
+                                    return session.send(Mono.just(
+                                            session.textMessage("Error leaving room: " + e.getMessage())
+                                    ));
+                                }
+                            });
+                });
+    }
+
 
 }
