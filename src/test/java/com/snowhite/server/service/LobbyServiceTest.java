@@ -3,6 +3,7 @@ package com.snowhite.server.service;
 import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.payload.ApiResponse;
+import com.snowhite.server.web.dto.web.response.GetRoomResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,19 +72,19 @@ class LobbyServiceTest {
     @Test
      void getRooms_returnsRoomList() {
 
-        webTestClient.get().uri("/lobby")
+        webTestClient.get().uri("/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<ApiResponse<List<Room>>>() {})
+                .expectBody(new ParameterizedTypeReference<ApiResponse<GetRoomResponse>>() {})
                 .consumeWith(response -> {
-                    ApiResponse<List<Room>> apiResponse = response.getResponseBody();
+                    ApiResponse<GetRoomResponse> apiResponse = response.getResponseBody();
 
                     assertNotNull(apiResponse);
                     assertTrue(apiResponse.getIsSuccess());
                     assertEquals("COMMON200", apiResponse.getCode());
 
-                    List<Room> rooms = apiResponse.getResult();
+                    List<Room> rooms = apiResponse.getResult().roomList();
                     assertNotNull(rooms);
                     assertEquals(2, rooms.size());
 
@@ -123,17 +124,17 @@ class LobbyServiceTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(new ParameterizedTypeReference<ApiResponse<List<Room>>>() {})
+                .expectBody(new ParameterizedTypeReference<ApiResponse<GetRoomResponse>>() {})
                 .consumeWith(response -> {
-                    ApiResponse<List<Room>> apiResponse = response.getResponseBody();
+                    ApiResponse<GetRoomResponse> apiResponse = response.getResponseBody();
 
                     assertNotNull(apiResponse);
                     assertTrue(apiResponse.getIsSuccess());
                     assertEquals("COMMON200", apiResponse.getCode());
 
-                    List<Room> rooms = apiResponse.getResult();
+                    GetRoomResponse rooms = apiResponse.getResult();
                     assertNotNull(rooms);
-                    assertEquals(0, rooms.size());
+                    assertEquals(0, rooms.roomList().size());
                 });
     }
 

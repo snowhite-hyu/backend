@@ -28,7 +28,7 @@ public class WebSocketConfig {
     @Bean
     public HandlerMapping webSocketMapping() {
         Map<String, WebSocketHandler> map = new ConcurrentHashMap<>();
-        map.put("/rooms", roomWebSocketHandler);
+        map.put("/room", roomWebSocketHandler);
         map.put("/game", gameWebSocketHandler);
 
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();

@@ -87,11 +87,9 @@ class RoomWebSocketHandlerTest {
     @AfterEach
     void tearDown() {
 
-
-
         userRepository.deleteAll();
 
-        redisTemplateForRooms.keys("*")
+        redisTemplateForRooms.keys("room:*")
                 .flatMap(redisTemplateForRooms::delete)
                 .then()
                 .block();
@@ -99,7 +97,7 @@ class RoomWebSocketHandlerTest {
 
     @Test
     void testCreateRoom() throws Exception {
-        String uri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
+        String uri = "ws://localhost:" + port + "/room?token=" + jwtToken;
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -159,8 +157,8 @@ class RoomWebSocketHandlerTest {
 
         userRepository.save(joinUser);
 
-        String createUri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
-        String joinUri = "ws://localhost:" + port + "/rooms?token=" + jwtProvider.generateToken(joinUser.getId());
+        String createUri = "ws://localhost:" + port + "/room?token=" + jwtToken;
+        String joinUri = "ws://localhost:" + port + "/room?token=" + jwtProvider.generateToken(joinUser.getId());
 
         Thread hostThread = new Thread(() -> {
             client.execute(
