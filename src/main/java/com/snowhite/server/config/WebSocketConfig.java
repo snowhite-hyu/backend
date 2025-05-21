@@ -28,8 +28,8 @@ public class WebSocketConfig {
     @Bean
     public HandlerMapping webSocketMapping() {
         Map<String, WebSocketHandler> map = new ConcurrentHashMap<>();
-        map.put("/room", roomWebSocketHandler);
-        map.put("/game", gameWebSocketHandler);
+        map.put("/ws/room", roomWebSocketHandler);
+        map.put("/ws/game", gameWebSocketHandler);
 
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
         mapping.setUrlMap(map);

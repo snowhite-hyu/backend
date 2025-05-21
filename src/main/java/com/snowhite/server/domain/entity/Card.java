@@ -3,14 +3,27 @@ package com.snowhite.server.domain.entity;
 import com.snowhite.server.domain.common.BaseEntity;
 import com.snowhite.server.domain.enums.CardType;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
 
 @Entity
 @Table(name = "cards")
-public class Card extends BaseEntity {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Card implements Serializable {
+
+    public Card(int id, String name, CardType type) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+    }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private int id;
 
     @Column(name = "card_name", nullable = false)
     private String name;
@@ -19,7 +32,18 @@ public class Card extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private CardType type;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "image_id")
-    private File file;
+    @Column(name = "up_open")
+    private boolean upOpen;
+
+    @Column(name = "down_open")
+    private boolean downOpen;
+
+    @Column(name = "left_open")
+    private boolean leftOpen;
+
+    @Column(name = "right_open")
+    private boolean rightOpen;
+
+    @Column(name = "middle_open")
+    private boolean middleOpen;
 }

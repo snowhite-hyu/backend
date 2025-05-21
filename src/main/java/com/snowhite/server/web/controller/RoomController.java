@@ -2,24 +2,25 @@ package com.snowhite.server.web.controller;
 
 import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.service.RoomService;
+import com.snowhite.server.web.dto.web.response.StartGameResponse;
 import com.snowhite.server.web.dto.web.response.GetRoomResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping("/rooms")
+@RequestMapping("/api/rooms")
 @RequiredArgsConstructor
 public class RoomController {
 
     private final RoomService roomService;
 
     @PostMapping("/{roomId}/start")
-    public Mono<ApiResponse<Long>> startGame(@PathVariable Long roomId) {
+    public Mono<ApiResponse<StartGameResponse>> startGame(@PathVariable Long roomId) {
 
-        Mono<Long> gameId = roomService.startGameByRoomId(roomId);
+        Mono<StartGameResponse> startGameResponse = roomService.startGameByRoomId(roomId);
 
-        Mono<ApiResponse<Long>> result = gameId.map(ApiResponse::onSuccess);
+        Mono<ApiResponse<StartGameResponse>> result = startGameResponse.map(ApiResponse::onSuccess);
         return result;
     }
 
