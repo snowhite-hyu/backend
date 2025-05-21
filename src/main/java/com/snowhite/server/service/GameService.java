@@ -1,6 +1,10 @@
 package com.snowhite.server.service;
 
+import com.snowhite.server.domain.entity.ActionCard;
+import com.snowhite.server.domain.entity.Card;
+import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.session.Game;
+import com.snowhite.server.domain.session.Player;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -11,8 +15,10 @@ import reactor.core.publisher.Mono;
 public class GameService {
 
     private static final String GAME_PREFIX = "game:";
+    private static final String CARD_PREFIX = "card:";
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
+    private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
 
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {

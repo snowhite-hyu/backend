@@ -44,4 +44,8 @@ public class Player {
         this.gold += gold;
         return this.gold;
     }
+
+    public void removeCard(int cardId) {
+        this.cards.remove(cardId);
+    }
 }
