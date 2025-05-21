@@ -100,7 +100,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
 
         return gameService.setupGameForNewRound(gameId)
-                .flatMap(game -> broadcastMessageToGame(gameId, "Game-Started", game));
+                .flatMap(game -> broadcastMessageToGame(gameId, "Round-Started", game));
 
     }
 
