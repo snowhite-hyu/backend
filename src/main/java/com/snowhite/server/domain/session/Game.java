@@ -41,7 +41,14 @@ public class Game {
 
     public void clearField() {
         this.field = new Integer[7][9][2];
+        for (int i = 0; i < 7; i++) {
+            for (int j = 0; j < 9; j++) {
+                field[i][j][0] = -1;    // -1: 카드 x
+                field[i][j][1] = 0;
+            }
+        }
     }
+
 
     private void clearDeck() {
         this.deck = new ArrayList<>();
