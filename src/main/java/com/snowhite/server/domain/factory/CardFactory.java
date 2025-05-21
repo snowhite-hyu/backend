@@ -12,9 +12,13 @@ public class CardFactory {
    public static Card createPathCard(
            Integer id,
            String name,
-           List<Boolean> path,
+           Boolean up_open,
+           Boolean down_open,
+           Boolean left_open,
+           Boolean right_open,
+           Boolean middle_open,
            Boolean isSpin
-   ) { return new PathCard(id, name, path, isSpin); }
+   ) { return new PathCard(id, name, up_open, down_open, left_open, right_open, middle_open, isSpin); }
 
     public static Card createActionCard(
             Integer id,
@@ -27,19 +31,27 @@ public class CardFactory {
     public static Card createStartCard(
             Integer id,
             String name,
-            List<Boolean> path
+            Boolean up_open,
+            Boolean down_open,
+            Boolean left_open,
+            Boolean right_open,
+            Boolean middle_open
     ) {
-        return new StartCard(id, name, path);
+        return new StartCard(id, name, up_open, down_open, left_open, right_open, middle_open);
     }
 
     public static Card createDestinationCard(
             Integer id,
             String name,
-            List<Boolean> path,
+            Boolean up_open,
+            Boolean down_open,
+            Boolean left_open,
+            Boolean right_open,
+            Boolean middle_open,
             Boolean isSpin,
             Boolean isGold
     ) {
-        return new DestinationCard(id, name, path, isSpin, isGold);
+        return new DestinationCard(id, name, up_open, down_open, left_open, right_open, middle_open, isSpin, isGold);
     }
 
 }
