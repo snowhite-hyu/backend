@@ -42,6 +42,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
+    private static final String ROOM_PREFIX = "room:";
+
     public RoomWebSocketHandler(
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> redisTemplateForRooms,
@@ -144,7 +146,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     case "join":
                     {
                         long userId = jwtProvider.extractUserIdFromToken(token);
-                        String roomId = node.get("roomId").asText();
+                        Long roomId = Long.parseLong(node.get("roomId").asText());
                         return handleJoinRoom(session, userId, roomId);
                     }
 
@@ -173,13 +175,14 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     }
 
                     User user = optionalUser.get();
-                    String roomId = "room:" + String.valueOf(roomIdGenerator.incrementAndGet());
+                    Long roomId = roomIdGenerator.incrementAndGet();
                     List<User> users = new ArrayList<>();
                     users.add(user);
 
                     Room room = new Room(roomId, user, users, capacity, turnTime, false);
 
-                    Mono<Boolean> saveRoom = redisTemplateForRooms.opsForValue().set(roomId, room);
+                    Mono<Boolean> saveRoom = redisTemplateForRooms.
+                            opsForValue().set(ROOM_PREFIX + String.valueOf(roomId), room);
 
                     try {
                         return Mono.when(saveRoom)
@@ -197,7 +200,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    private Mono<Void> handleJoinRoom(WebSocketSession session, long userId, String roomId) {
+    private Mono<Void> handleJoinRoom(WebSocketSession session, long userId, Long roomId) {
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
@@ -208,7 +211,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
                     User user = optionalUser.get();
 
-                    return redisTemplateForRooms.opsForValue().get(roomId)
+                    return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
                             .flatMap(room -> {
                                 if (room == null) {
                                     return session.send(Mono.just(
@@ -225,10 +228,11 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                 room.setUsers(users);
 
                                 try {
-                                    return redisTemplateForRooms.opsForValue().set(roomId, room)
+                                    return redisTemplateForRooms.opsForValue()
+                                            .set(ROOM_PREFIX + String.valueOf(roomId), room)
                                             .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
                                             .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
-                                            .then(session.send(Mono.just(
+                                            .and(session.send(Mono.just(
                                                     session.textMessage(
                                                             objectMapper.writeValueAsString(room)
                                                     ))));

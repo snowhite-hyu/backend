@@ -40,7 +40,6 @@ public class SecurityConfig {
                                         "/swagger-resources/**", "/webjars/**",
                                         "/api/**", "/ws/**"
 //                                        "/users/login", "/users/register", "/users/check-email","/users/check-login",
-//                                        "/lobby", "/rooms"
                                 ).permitAll()
                                 .anyExchange().authenticated()
                 )
