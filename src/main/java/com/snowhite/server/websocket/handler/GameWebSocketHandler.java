@@ -54,26 +54,27 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                     reactiveRedisTemplateForSession.delete(userId).subscribe();
                                 })
                                 .map(WebSocketMessage::getPayloadAsText)
-                                .flatMap(payload -> handlePayload(session, payload))
+                                .flatMap(message -> handlePayload(session, message))
                                 .then()
                 );
     }
 
     // type에 따라 요청 처리
-    public Mono<Void> handlePayload(WebSocketSession session, String payload) {
+    public Mono<Void> handlePayload(WebSocketSession session, String message) {
         try {
-            JsonNode node = objectMapper.readTree(payload);
-            String type = node.get("type").asText();
+            JsonNode root = objectMapper.readTree(message);
+            String type = root.get("type").asText();
+            JsonNode payload = root.get("payload");
 
             switch (type) {
                 case "join-game": {
-                    long gameId = Long.parseLong(node.get("gameId").asText());
-                    long playerId = Long.parseLong(node.get("playerId").asText());
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     return handleJoinGame(session, gameId, playerId);
                 }
 
                 case "round-start": {
-                    long gameId = Long.parseLong(node.get("gameId").asText());
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
                     return handleStartRound(session, gameId);
                 }
 
