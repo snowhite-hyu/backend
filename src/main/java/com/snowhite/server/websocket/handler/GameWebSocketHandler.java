@@ -54,13 +54,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                     reactiveRedisTemplateForSession.delete(userId).subscribe();
                                 })
                                 .map(WebSocketMessage::getPayloadAsText)
-                                .flatMap(message -> handlePayload(session, message))
+                                .flatMap(message -> handleMessage(session, message))
                                 .then()
                 );
     }
 
     // type에 따라 요청 처리
-    public Mono<Void> handlePayload(WebSocketSession session, String message) {
+    public Mono<Void> handleMessage(WebSocketSession session, String message) {
         try {
             JsonNode root = objectMapper.readTree(message);
             String type = root.get("type").asText();
