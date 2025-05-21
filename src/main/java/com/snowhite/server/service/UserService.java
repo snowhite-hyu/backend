@@ -33,8 +33,6 @@ public class UserService {
             throw new BadCredentialsException(ErrorStatus._BAD_REQUEST.toString());
         String accessToken = jwtProvider.generateToken(user.getId());
         LoginResponseDto.builder().token(accessToken).build();
-        user.setLoggedIn(true);
-        userRepository.save(user);
         return Mono.just(accessToken);
     }
 
