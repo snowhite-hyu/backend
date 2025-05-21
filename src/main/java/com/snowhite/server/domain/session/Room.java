@@ -1,5 +1,4 @@
 package com.snowhite.server.domain.session;
-
 import com.snowhite.server.domain.entity.User;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,14 +10,14 @@ import java.util.Objects;
 @NoArgsConstructor
 public class Room {
 
-    private String roomId;
+    private Long roomId;
     private User masterPlayer;
     private List<User> users;
     private int capacity;
     private int turnTime;
     private boolean isPlaying;
 
-    public Room(String roomId, User masterPlayer, List<User> users, int capacity, int turnTime, boolean isPlaying) {
+    public Room(Long roomId, User masterPlayer, List<User> users, int capacity, int turnTime, boolean isPlaying) {
         this.roomId = roomId;
         this.masterPlayer = masterPlayer;
         this.users = users;

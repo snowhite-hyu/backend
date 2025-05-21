@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import lombok.Getter;
 
@@ -12,6 +13,7 @@ public class Player {
 
     private final long playerId;
     private final String playerName;
+    private PlayerRole playerRole;
     private final List<Integer> cards;
     private EnumSet<PlayerState> state;
     private int gold;
@@ -24,8 +26,16 @@ public class Player {
         gold = 0;
     }
 
-    public void addCard(int card) {
-        cards.add(card);
+    public void addCard(int cardId) {
+        cards.add(cardId);
+    }
+
+    public void changePlayerRole(PlayerRole playerRole) {
+        this.playerRole = playerRole;
+    }
+
+    public void clearHand() {
+        cards.clear();
     }
 
     public void addPlayerState(PlayerState state) {

@@ -2,10 +2,8 @@ package com.snowhite.server.init;
 
 import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.enums.ActionCardType;
-import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.factory.CardFactory;
 import com.snowhite.server.repository.CardRepository;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -85,7 +83,6 @@ public class CardInitializer {
                 CardFactory.createActionCard(110, "broken - lantern", ActionCardType.BROKEN_LANTERN),
                 CardFactory.createActionCard(111, "broken - minecart", ActionCardType.BROKEN_MINECART)
         );
-
         cardRepository.deleteAll();
         cardRepository.saveAll(cardList);
         cardRepository.findAll().forEach(card -> {

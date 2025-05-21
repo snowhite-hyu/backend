@@ -10,17 +10,12 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
-@Getter
 @Entity
 @Table(name = "cards")
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 public class Card implements Serializable {
-    public Card(int id, String name, CardType type) {
-        this.id = id;
-        this.name = name;
-        this.type = type;
-    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,9 +27,4 @@ public class Card implements Serializable {
     @Column(name = "card_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private CardType type;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "image_id")
-    private File file;
-
 }
