@@ -73,7 +73,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return handleJoinGame(session, gameId, playerId);
                 }
 
-                case "round-start": {
+                case "start-round": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
                     return handleStartRound(session, gameId);
                 }
