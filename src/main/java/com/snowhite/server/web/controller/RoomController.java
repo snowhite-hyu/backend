@@ -18,9 +18,9 @@ public class RoomController {
     @PostMapping("/{roomId}/start")
     public Mono<ApiResponse<StartGameResponse>> startGame(@PathVariable Long roomId) {
 
-        Mono<StartGameResponse> gameId = roomService.startGameByRoomId(roomId);
+        Mono<StartGameResponse> startGameResponse = roomService.startGameByRoomId(roomId);
 
-        Mono<ApiResponse<StartGameResponse>> result = gameId.map(ApiResponse::onSuccess);
+        Mono<ApiResponse<StartGameResponse>> result = startGameResponse.map(ApiResponse::onSuccess);
         return result;
     }
 
