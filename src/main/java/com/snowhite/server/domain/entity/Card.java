@@ -18,7 +18,6 @@ import java.io.Serializable;
 public class Card implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(name = "card_name", nullable = false)

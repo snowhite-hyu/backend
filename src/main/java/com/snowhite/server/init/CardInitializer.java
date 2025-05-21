@@ -84,6 +84,7 @@ public class CardInitializer {
                 CardFactory.createActionCard(111, "broken - minecart", ActionCardType.BROKEN_MINECART)
         );
         cardRepository.deleteAll();
+        cardRepository.flush();
         cardRepository.saveAll(cardList);
         cardRepository.findAll().forEach(card -> {
             reactiveRedisTemplateForCard.opsForValue()
