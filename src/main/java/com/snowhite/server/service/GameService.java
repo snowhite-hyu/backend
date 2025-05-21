@@ -2,8 +2,11 @@ package com.snowhite.server.service;
 
 import com.snowhite.server.domain.entity.ActionCard;
 import com.snowhite.server.domain.entity.Card;
+import com.snowhite.server.domain.entity.PathCard;
+import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.entity.Card;
+import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -84,7 +88,7 @@ public class GameService {
         int playerCount = game.getPlayerCount();
         int cardNumber = 0;
 
-        switch(playerCount) {
+        switch (playerCount) {
             case 3, 4, 5:
                 cardNumber = 6;
                 break;
@@ -159,4 +163,109 @@ public class GameService {
                 .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key));
     }
 
+    private Player findPlayerById(Game game, Long playerId) {
+        return game.getPlayers().stream()
+                .filter(player -> player.getPlayerId() == playerId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Mono<Card> findCardById(Integer cardId) {
+        return getAllCardsFromRedis()
+                .filter(card -> card.getId().equals(cardId))
+                .next();
+    }
+
+    private Mono<Boolean> handlePathCard(PathCard pathCard) {
+        return Mono.fromCallable(() -> {
+            // 경로 카드 관련 로직 구현
+            return true;
+        });
+    }
+
+    public Mono<Boolean> useActionCard(Long gameId, Long playerId, Long targetPlayerId, Integer actionCardId) {
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+                .flatMap(game -> {
+                    // 1. player, targetPlayer 조회
+                    Player player = findPlayerById(game, playerId);
+                    Player targetPlayer = findPlayerById(game, targetPlayerId);
+
+                    if (player == null || targetPlayer == null) {
+                        return Mono.just(false);
+                    }
+
+                    // 2. player의 손패에 해당 카드가 있는지 확인
+                    if (!player.hasCard(actionCardId)) {
+                        return Mono.just(false);
+                    }
+
+                    // 3. 카드 조회 및 처리
+                    return findCardById(actionCardId)
+                            .flatMap(c -> {
+                                if (!(c instanceof ActionCard)) {
+                                    return Mono.just(false); // 액션 카드 아님
+                                }
+                                ActionCard actionCard = (ActionCard) c;
+
+                                // 4. 액션 타입별 상태
+                                List<PlayerState> repairState = new ArrayList<>();
+                                List<PlayerState> brokenState = new ArrayList<>();
+                                switch (actionCard.getActionCardType()) {
+                                    case REPAIR_PICKAXE: // enum 이름 중복 제거
+                                        repairState.add(PlayerState.BROKEN_PICKAXE);
+                                        break;
+                                    case REPAIR_LANTERN:
+                                        repairState.add(PlayerState.BROKEN_LANTERN);
+                                        break;
+
+                                    case REPAIR_MINECART:
+                                        repairState.add(PlayerState.BROKEN_MINCART);
+                                        break;
+                                    case REPAIR_LANTERN_MINECART:
+                                        repairState.add(PlayerState.BROKEN_LANTERN);
+                                        repairState.add(PlayerState.BROKEN_MINCART);
+                                        break;
+                                    case REPAIR_PICKAXE_AND_LANTERN:
+                                        repairState.add(PlayerState.BROKEN_PICKAXE);
+                                        repairState.add(PlayerState.BROKEN_LANTERN);
+                                        break;
+                                    case REPAIR_PICKAXE_AND_MINECART:
+                                        repairState.add(PlayerState.BROKEN_PICKAXE);
+                                        repairState.add(PlayerState.BROKEN_MINCART);
+                                        break;
+                                    case BROKEN_PICKAXE:
+                                        brokenState.add(PlayerState.BROKEN_PICKAXE);
+                                        break;
+                                    case BROKEN_LANTERN:
+                                        brokenState.add(PlayerState.BROKEN_PICKAXE);
+                                        break;
+                                    case BROKEN_MINECART:
+                                        brokenState.add(PlayerState.BROKEN_MINCART);
+                                        break;
+                                    // map, rockFall 추가 필요
+                                    default:
+                                        return Mono.just(false);
+                                }
+
+                                // 5. state에 따라 사용 가능한지 검증
+                                boolean canRepair = repairState.stream().allMatch(targetPlayer::hasState);
+                                boolean canBreak = brokenState.stream().noneMatch(targetPlayer::hasState);
+                                if (!canRepair || !canBreak) {
+                                    return Mono.just(false);
+                                }
+
+                                // 6. 상태 변경 적용
+                                repairState.forEach(targetPlayer::removePlayerState);
+                                brokenState.forEach(targetPlayer::addPlayerState);
+                                player.removeCard(actionCardId);
+
+                                // 7. 게임 상태 저장
+                                return reactiveRedisTemplateForGame.opsForValue()
+                                        .set(GAME_PREFIX + gameId, game)
+                                        .thenReturn(true);
+                            });
+                })
+                .defaultIfEmpty(false)
+                .onErrorReturn(false);
+    }
 }

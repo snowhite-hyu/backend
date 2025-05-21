@@ -2,10 +2,6 @@ package com.snowhite.server.domain.factory;
 
 import com.snowhite.server.domain.entity.*;
 import com.snowhite.server.domain.enums.ActionCardType;
-import com.snowhite.server.domain.enums.CardType;
-
-import java.util.List;
-import java.util.Map;
 
 public class CardFactory {
     private CardFactory() {} // 인스턴스화 금지

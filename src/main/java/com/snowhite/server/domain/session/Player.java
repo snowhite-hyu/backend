@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import lombok.Getter;
@@ -39,11 +40,11 @@ public class Player {
     }
 
     public void addPlayerState(PlayerState state) {
-        this.state.add(state);
+        if (!hasState(state)) { this.state.add(state); }
     }
 
     public void removePlayerState(PlayerState state) {
-        this.state.remove(state);
+        if (hasState(state)) { this.state.remove(state); }
     }
 
     public boolean hasState(PlayerState state) {
@@ -58,4 +59,5 @@ public class Player {
     public void removeCard(int cardId) {
         this.cards.remove(cardId);
     }
+    public boolean hasCard(Integer cardId) { return this.cards.contains(cardId); }
 }
