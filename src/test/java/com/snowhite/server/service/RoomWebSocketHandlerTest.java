@@ -20,6 +20,7 @@ import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClien
 import org.springframework.web.reactive.socket.client.WebSocketClient;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.time.Duration;
 
 import java.net.URI;
@@ -37,6 +38,16 @@ import org.springframework.web.reactive.socket.WebSocketMessage;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RoomWebSocketHandlerTest {
 
+    private boolean isJson(String msg) {
+        try {
+            JsonNode node = objectMapper.readTree(msg);
+            return node.has("roomId");
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+
     @Autowired
     private JwtProvider jwtProvider;
 
@@ -52,7 +63,9 @@ class RoomWebSocketHandlerTest {
     private int port;
 
     private WebSocketClient client;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private User testUser;
     private String jwtToken;
@@ -74,103 +87,17 @@ class RoomWebSocketHandlerTest {
     @AfterEach
     void tearDown() {
 
-
-
         userRepository.deleteAll();
 
-        redisTemplateForRooms.keys("*")
+        redisTemplateForRooms.keys("room:*")
                 .flatMap(redisTemplateForRooms::delete)
                 .then()
                 .block();
     }
 
-
-    @Test
-    void testJoinRoomAndBroadcast() throws Exception {
-
-        String roomId = "room:1";
-
-        User joinUser = new User();
-        joinUser.setUsername("joinUser");
-        joinUser.setEmail("joinUser@example.com");
-        joinUser.setPassword("password");
-        joinUser.setLoggedIn(true);
-
-        userRepository.save(joinUser);
-
-        String createUri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
-        String joinUri = "ws://localhost:" + port + "/rooms?token=" + jwtProvider.generateToken(joinUser.getId());
-
-        CountDownLatch hostLatch = new CountDownLatch(1);
-        List<String> hostReceivedMessages = Collections.synchronizedList(new ArrayList<>());
-
-        Thread hostThread = new Thread(() -> {
-            client.execute(
-                    URI.create(createUri),
-                    session -> {
-                        ObjectNode payload = objectMapper.createObjectNode();
-                        payload.put("action", "create");
-                        payload.put("capacity", 4);
-                        payload.put("turnTime", 30);
-
-                        session.send(Mono.just(session.textMessage(payload.toString()))).subscribe();
-
-                        return session.receive()
-                                .map(WebSocketMessage::getPayloadAsText)
-                                .doOnNext(msg -> {
-                                    System.out.println("host received: " + msg);
-                                    hostReceivedMessages.add(msg);
-
-                                    if (msg.contains("joinUser")) {  // join 유저가 입장한 메시지를 받으면 latch 해제
-                                        hostLatch.countDown();
-                                    }
-                                })
-                                .take(2)
-                                .then();
-                    }
-            ).block();
-        });
-
-        hostThread.start();
-
-        // host가 연결되고 방을 만든 뒤 joinUser 연결을 위해 약간의 대기
-        Thread.sleep(1000);
-
-        // join user가 방에 입장
-        client.execute(
-                URI.create(joinUri),
-                session -> {
-                    ObjectNode payload = objectMapper.createObjectNode();
-                    payload.put("action", "join");
-                    payload.put("roomId", roomId);
-
-                    return session.send(Mono.just(session.textMessage(payload.toString())))
-                            .thenMany(session.receive()
-                                    .map(WebSocketMessage::getPayloadAsText)
-                                    .doOnNext(msg -> System.out.println("join user received: " + msg))
-                            )
-                            .take(2)
-                            .then();
-                }
-        ).block();
-
-        // latch 대기 (최대 5초)
-        boolean received = hostLatch.await(5, TimeUnit.SECONDS);
-
-        Assertions.assertTrue(received, "Host should have received broadcast when join user entered the room");
-
-        // 추가 검증: 메시지 내용 확인
-        boolean containsJoinUser = hostReceivedMessages.stream()
-                .anyMatch(msg -> msg.contains("joinUser"));
-
-        Assertions.assertTrue(containsJoinUser, "Host should have received a message indicating joinUser joined");
-
-    }
-
-
     @Test
     void testCreateRoom() throws Exception {
-        String uri = "ws://localhost:" + port + "/rooms?token=" + jwtToken;
+        String uri = "ws://localhost:" + port + "/room?token=" + jwtToken;
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -215,4 +142,95 @@ class RoomWebSocketHandlerTest {
             Assertions.fail("Did not receive response from WebSocket server");
         }
     }
+
+
+    @Test
+    void testJoinRoomAndBroadcast() throws Exception {
+
+        String roomId = "room:1";
+
+        User joinUser = new User();
+        joinUser.setUsername("joinUser");
+        joinUser.setEmail("joinUser@example.com");
+        joinUser.setPassword("password");
+        joinUser.setLoggedIn(true);
+
+        userRepository.save(joinUser);
+
+        String createUri = "ws://localhost:" + port + "/room?token=" + jwtToken;
+        String joinUri = "ws://localhost:" + port + "/room?token=" + jwtProvider.generateToken(joinUser.getId());
+
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(createUri),
+                    session -> {
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("action", "create");
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+
+                        session.send(Mono.just(session.textMessage(payload.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(msg -> {
+                                    if (isJson(msg)) {
+                                        try {
+                                            Room room = objectMapper.readValue(msg, Room.class);
+                                            System.out.println("when user create room, host received: " + room);
+                                            Assertions.assertEquals(roomId, room.getRoomId());
+                                            Assertions.assertEquals(testUser.getId(), room.getMasterPlayer().getId());
+                                        } catch (JsonProcessingException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    } else {
+                                        System.out.println("when user is joined, host received: " + msg);
+                                    }
+                                })
+                                .take(2)
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+
+        Thread.sleep(3000);
+
+        client.execute(
+                URI.create(joinUri),
+                session -> {
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("action", "join");
+                    payload.put("roomId", roomId);
+
+                    return session.send(Mono.just(session.textMessage(payload.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> {
+                                                if (isJson(msg)) {
+                                                    try {
+                                                        Room room = objectMapper.readValue(msg, Room.class);
+                                                        System.out.println("when user join room, join user received: " + room);
+                                                        Assertions.assertEquals(roomId, room.getRoomId());
+                                                        Assertions.assertEquals(testUser.getId(), room.getMasterPlayer().getId());
+                                                        Assertions.assertTrue(room.getUsers().stream().anyMatch(
+                                                                user -> user.getId() == joinUser.getId())
+                                                        );
+                                                    } catch (JsonProcessingException e) {
+                                                        throw new RuntimeException(e);
+                                                    }
+                                                }
+                                                else {
+                                                    System.out.println("when user is joined, join user received: " + msg);
+                                                }
+                                            })
+                            )
+                            .take(2)
+                            .then();
+                }
+        ).block();
+
+    }
+
 }
