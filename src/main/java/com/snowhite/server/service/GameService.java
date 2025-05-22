@@ -60,6 +60,10 @@ public class GameService {
                 });
     }
 
+    public Mono<Game> getGameByGameId(Long gameId) {
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId);
+    }
+
     // 출발지, 목적지 카드 세팅
     public void initializeNewField(Game game) {
         game.clearField();
