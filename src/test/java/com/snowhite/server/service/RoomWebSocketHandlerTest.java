@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import reactor.core.scheduler.Schedulers;
@@ -73,6 +75,8 @@ class RoomWebSocketHandlerTest {
 
     private static final String ROOM_PREFIX = "room:";
 
+    private static final AtomicLong roomIdGenerator = new AtomicLong(0);
+
     @BeforeEach
     void setup(@Autowired PasswordEncoder passwordEncoder) {
         client = new ReactorNettyWebSocketClient();
@@ -101,6 +105,7 @@ class RoomWebSocketHandlerTest {
     @Test
     void testCreateRoom() throws Exception {
         String uri = "ws://localhost:" + port + "/room?token=" + jwtToken;
+        Long roomId = roomIdGenerator.incrementAndGet();
 
         client.execute(
                 URI.create(uri),
@@ -119,6 +124,7 @@ class RoomWebSocketHandlerTest {
                                 try {
                                     JsonNode node = objectMapper.readTree(message);
 
+                                    Assertions.assertEquals(roomId, node.get("roomId").asLong());
                                     Assertions.assertEquals(4, node.get("capacity").asInt());
                                     Assertions.assertEquals(30, node.get("turnTime").asInt());
                                     Assertions.assertFalse(node.get("playing").asBoolean());
@@ -146,7 +152,7 @@ class RoomWebSocketHandlerTest {
     @Test
     void testJoinRoomAndBroadcast() throws Exception {
 
-        Long roomId = 2L;
+        Long roomId = roomIdGenerator.incrementAndGet();
 
         User joinUser = new User();
         joinUser.setUsername("joinUser");
@@ -229,6 +235,115 @@ class RoomWebSocketHandlerTest {
                             .then();
                 }
         ).block();
+    }
+
+    @Test
+    void testQuitRoomAndBroadcast() throws Exception {
+
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        User joinUser = new User();
+        joinUser.setUsername("joinUser");
+        joinUser.setEmail("joinUser@example.com");
+        joinUser.setPassword("password");
+        joinUser.setLoggedIn(true);
+        userRepository.save(joinUser);
+
+        String hostUri = "ws://localhost:" + port + "/room?token=" + jwtToken;
+        String joinUri = "ws://localhost:" + port + "/room?token=" + jwtProvider.generateToken(joinUser.getId());
+
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(hostUri),
+                    session -> {
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("action", "create");
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+
+                        session.send(Mono.just(session.textMessage(payload.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(msg -> {
+                                    if (isJson(msg)) {
+                                        try {
+                                            Room room = objectMapper.readValue(msg, Room.class);
+                                            System.out.println("host received: " + room);
+                                            Assertions.assertEquals(roomId, room.getRoomId());
+                                            Assertions.assertEquals(testUser.getId(), room.getMasterPlayer().getId());
+                                            Assertions.assertTrue(room.getUsers().stream().anyMatch(
+                                                    user -> user.getId() == testUser.getId())
+                                            );
+                                        } catch (JsonProcessingException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    } else {
+                                        System.out.println("host received: " + msg);
+                                    }
+                                })
+                                .take(3)
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+
+        Thread.sleep(3000);
+
+        client.execute(
+                URI.create(joinUri),
+                session -> {
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("action", "join");
+                    payload.put("roomId", roomId);
+
+                    return session.send(Mono.just(session.textMessage(payload.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> {
+                                        if (isJson(msg)) {
+                                            try {
+                                                Room room = objectMapper.readValue(msg, Room.class);
+                                                System.out.println("join user received: " + room);
+                                                Assertions.assertEquals(roomId, room.getRoomId());
+                                                Assertions.assertEquals(testUser.getId(), room.getMasterPlayer().getId());
+                                                Assertions.assertTrue(room.getUsers().stream().anyMatch(
+                                                        user -> user.getId() == joinUser.getId())
+                                                );
+                                            } catch (JsonProcessingException e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        } else {
+                                            System.out.println("join user received: " + msg);
+                                        }
+                                    })
+                                    .take(2)
+                            )
+                            .then();
+                }
+        ).block();
+
+        System.out.println("mid-check");
+
+        client.execute(
+                URI.create(joinUri),
+                session -> {
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("action", "quit");
+                    payload.put("roomId", roomId);
+
+                    return session.send(Mono.just(session.textMessage(payload.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> System.out.println("when quit room, join user received: " + msg))
+                                    .take(2)
+                            )
+                            .then();
+                }
+        ).block();
+
     }
 
 }
