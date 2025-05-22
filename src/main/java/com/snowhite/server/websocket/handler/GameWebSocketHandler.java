@@ -83,6 +83,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return handleGetGameState(session, gameId);
                 }
 
+                case "get-player-info": {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    return handleGetPlayerInfo(session, gameId, playerId);
+                }
+
                 default:
                     return sendMessage(session, "error", null);
             }
@@ -113,6 +119,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.getGameByGameId(gameId)
                 .flatMap(game -> broadcastMessageToGame(gameId, "Game-State", game));
+    }
+
+    public Mono<Void> handleGetPlayerInfo(WebSocketSession session, Long gameId, Long playerId) {
+
+        return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
+                .flatMap(player -> broadcastMessageToGame(gameId, "Player-Info", player));
     }
 
     // 게임 전체에 broadcast
