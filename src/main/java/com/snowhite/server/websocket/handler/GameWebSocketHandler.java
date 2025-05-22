@@ -118,13 +118,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleGetGameState(WebSocketSession session, Long gameId) {
 
         return gameService.getGameByGameId(gameId)
-                .flatMap(game -> broadcastMessageToGame(gameId, "Game-State", game));
+                .flatMap(game -> sendMessage(session, "Game-State", game));
     }
 
     public Mono<Void> handleGetPlayerInfo(WebSocketSession session, Long gameId, Long playerId) {
 
         return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
-                .flatMap(player -> broadcastMessageToGame(gameId, "Player-Info", player));
+                .flatMap(player -> sendMessage(session, "Player-Info", player));
     }
 
     // 게임 전체에 broadcast
