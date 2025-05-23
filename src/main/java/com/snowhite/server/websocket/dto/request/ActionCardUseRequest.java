@@ -1,12 +1,17 @@
 package com.snowhite.server.websocket.dto.request;
 
-import lombok.Getter;
+import com.snowhite.server.domain.enums.PlayerState;
+import jakarta.validation.constraints.NotNull;
 
-@Getter
-public class ActionCardUseRequest {
-    private Integer cardId;
-    private Long playerId;
-    private Long targetPlayerId;
-    private Integer locationX;
-    private Integer locationY;
+public record ActionCardUseRequest (
+        @NotNull Long gameId,
+        @NotNull int cardId,
+        @NotNull Long playerId,
+
+        Long targetPlayerId,
+        Integer locationX,
+        Integer locationY,
+        PlayerState targetRepairState
+) {
+
 }

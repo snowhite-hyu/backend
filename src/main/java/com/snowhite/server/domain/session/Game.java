@@ -21,6 +21,7 @@ public class Game {
     private List<Integer> deck;
     private long currentTurnPlayerId;
     private int turnTime;   // second
+    private boolean hasPathFromStart;
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
@@ -32,6 +33,7 @@ public class Game {
         deck = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
+        hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
 
     public void clearFieldAndDeck() {
@@ -119,6 +121,10 @@ public class Game {
         return cardId;
     }
 
+    public void removeCard(int row, int col, int cardId) {
+        this.field[row][col] = null;
+    }
+
     public void addCardsToDeck(List<Integer> cardIds) {
         this.deck.addAll(cardIds);
     }
@@ -160,6 +166,15 @@ public class Game {
             deck.add(108);  // 지도
         }
     }
+    // TODO: field 확장 기능 추가 후 구현
+    public boolean isPossibleLocationToGetCard(int row, int col) {
+        // card가 놓인 filed 크기 벗어났는지? && filed[row][col][0] != -1
+        return true;
+    }
 
+    public boolean isFlipped(int row, int col) {
+        if (field[row][col][1] == 1) { return true; }
+        else { return false; }
+    }
 
 }
