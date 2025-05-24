@@ -60,39 +60,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         this.objectMapper = objectMapper;
     }
 
-    private String extractTokenFromUri(String uri) {
-        try {
-            URI parsedUri = new URI(uri);
-            String query = parsedUri.getQuery();
-            if (query != null) {
-                for (String param : query.split("&")) {
-                    String[] pair = param.split("=");
-                    if (pair.length == 2 && pair[0].equals("token")) {
-                        return pair[1];
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    private Mono<Void> broadcastToRoom(Room room, String message) {
-        List<Mono<Void>> broadcasts = room.getUsers().stream()
-                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
-                        .flatMap(sessionId -> {
-                            WebSocketSession userSession = sessionMap.get(sessionId);
-                            if (userSession != null && userSession.isOpen()) {
-                                return userSession.send(Mono.just(userSession.textMessage(message)));
-                            } else {
-                                return Mono.empty();
-                            }
-                        }))
-                .collect(Collectors.toList());
-
-        return Flux.concat(broadcasts).then();
-    }
-
     @Override
     @NonNull
     public Mono<Void> handle(WebSocketSession session) {
@@ -101,7 +68,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         String token;
 
         try {
-            token = extractTokenFromUri(uri);
+            token = jwtProvider.extractTokenFromURI(uri);
         } catch (Exception e) {
             return session.send(Mono.just(session.textMessage("Invalid URI format"))).then();
         }
@@ -321,5 +288,20 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 });
     }
 
+    private Mono<Void> broadcastToRoom(Room room, String message) {
+        List<Mono<Void>> broadcasts = room.getUsers().stream()
+                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
+                        .flatMap(sessionId -> {
+                            WebSocketSession userSession = sessionMap.get(sessionId);
+                            if (userSession != null && userSession.isOpen()) {
+                                return userSession.send(Mono.just(userSession.textMessage(message)));
+                            } else {
+                                return Mono.empty();
+                            }
+                        }))
+                .collect(Collectors.toList());
+
+        return Flux.concat(broadcasts).then();
+    }
 
 }
