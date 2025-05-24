@@ -205,7 +205,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                     return redisTemplateForRooms.opsForValue()
                                             .set(ROOM_PREFIX + String.valueOf(roomId), room)
                                             .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
-                                            .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
+                                            .then(broadcastToRoom(userId, room, user.getUsername() + " joined the room."))
                                             .and(session.send(Mono.just(
                                                     session.textMessage(
                                                             objectMapper.writeValueAsString(room)
@@ -276,7 +276,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                                         session.send(Mono.just(
                                                                 session.textMessage("Room is deleted and user left the room")
                                                         )) :
-                                                        broadcastToRoom(room, user.getUsername() + " left the room")
+                                                        broadcastToRoom(userId, room, user.getUsername() + " left the room")
                                                                 .then(session.send(Mono.just(
                                                                         session.textMessage("You're quit the room")
                                                                 )))
@@ -288,8 +288,9 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    private Mono<Void> broadcastToRoom(Room room, String message) {
+    private Mono<Void> broadcastToRoom(Long userId, Room room, String message) {
         List<Mono<Void>> broadcasts = room.getUsers().stream()
+                .filter(user -> user.getId() != userId)
                 .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
                         .flatMap(sessionId -> {
                             WebSocketSession userSession = sessionMap.get(sessionId);
