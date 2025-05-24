@@ -110,33 +110,52 @@ class RoomWebSocketHandlerTest {
         client.execute(
                 URI.create(uri),
                 session -> {
+
                     ObjectNode payload = objectMapper.createObjectNode();
-                    payload.put("action", "create");
                     payload.put("capacity", 4);
                     payload.put("turnTime", 30);
 
-                    session.send(Mono.just(session.textMessage(payload.toString()))).subscribe();
+                    ObjectNode request = objectMapper.createObjectNode();
+                    request.put("type", "create");
+                    request.set("payload", payload);
+
+                    session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
 
                     return session.receive()
                             .map(WebSocketMessage::getPayloadAsText)
                             .doOnNext(message -> {
 
                                 try {
-                                    JsonNode node = objectMapper.readTree(message);
+                                    JsonNode root = objectMapper.readTree(message);
 
-                                    Assertions.assertEquals(roomId, node.get("roomId").asLong());
-                                    Assertions.assertEquals(4, node.get("capacity").asInt());
-                                    Assertions.assertEquals(30, node.get("turnTime").asInt());
-                                    Assertions.assertFalse(node.get("playing").asBoolean());
+                                    Assertions.assertEquals("created-room", root.get("type").asText());
 
-                                    JsonNode masterPlayerNode = node.get("masterPlayer");
-                                    Assertions.assertEquals(testUser.getId(), masterPlayerNode.get("id").asLong());
-                                    Assertions.assertEquals(testUser.getUsername(), masterPlayerNode.get("username").asText());
-                                    Assertions.assertEquals(testUser.getEmail(), masterPlayerNode.get("email").asText());
-                                    Assertions.assertEquals(testUser.isLoggedIn(), masterPlayerNode.get("loggedIn").asBoolean());
+                                    JsonNode payloadNode = root.get("payload");
+                                    Assertions.assertNotNull(payloadNode);
 
-                                    session.close()
-                                            .subscribe();
+                                    Long getRoomId = payloadNode.get("roomId").asLong();
+                                    JsonNode masterPlayer = payloadNode.get("masterPlayer");
+                                    JsonNode users = payloadNode.get("users");
+                                    int capacity = payloadNode.get("capacity").asInt();
+                                    int turnTime = payloadNode.get("turnTime").asInt();
+                                    boolean isPlaying = payloadNode.get("isPlaying").asBoolean();
+
+                                    Assertions.assertEquals(roomId, getRoomId);
+                                    Assertions.assertEquals(4, capacity);
+                                    Assertions.assertEquals(30, turnTime);
+                                    Assertions.assertFalse(isPlaying);
+
+                                    Assertions.assertEquals(testUser.getId(), masterPlayer.get("id").asLong());
+                                    Assertions.assertEquals(testUser.getUsername(), masterPlayer.get("username").asText());
+                                    Assertions.assertEquals(testUser.getEmail(), masterPlayer.get("email").asText());
+                                    Assertions.assertEquals(testUser.isLoggedIn(), masterPlayer.get("loggedIn").asBoolean());
+
+                                    Assertions.assertTrue(users.isArray());
+                                    Assertions.assertEquals(1, users.size());
+                                    Assertions.assertEquals(masterPlayer, users.get(0));
+
+                                    session.close().subscribe();
 
                                 } catch (JsonProcessingException e) {
                                     e.printStackTrace();

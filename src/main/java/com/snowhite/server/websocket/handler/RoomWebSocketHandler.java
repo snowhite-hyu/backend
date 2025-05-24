@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import lombok.NonNull;
@@ -97,8 +98,9 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private Function<String, Publisher<? extends Void>> processMessage(WebSocketSession session, String token) {
         return payload -> {
             try {
-                JsonNode node = objectMapper.readTree(payload);
-                String action = node.get("action").asText().toLowerCase();
+                JsonNode root = objectMapper.readTree(payload);
+                String action = root.get("type").asText().toLowerCase();
+                JsonNode node = root.get("payload");
 
                 switch (action) {
                     case "create":
@@ -158,19 +160,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     Mono<Boolean> saveRoom = redisTemplateForRooms.
                             opsForValue().set(ROOM_PREFIX + String.valueOf(roomId), room);
 
-                    try {
-                        return Mono.when(saveRoom)
-                                .then(session.send(Mono.just(
-                                        session.textMessage(
-                                                objectMapper.writeValueAsString(room)
-                                        )
-                                )));
-                    } catch (JsonProcessingException e) {
-                        return session.send(Mono.just(
-                                session.textMessage("Error creating room: " + e.getMessage())
-                                )
-                        );
-                    }
+                    return Mono.when(saveRoom)
+                            .then(sendMessage(session, "success", room));
                 });
     }
 
@@ -303,6 +294,20 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .collect(Collectors.toList());
 
         return Flux.concat(broadcasts).then();
+    }
+
+    private Mono<Void> sendMessage(WebSocketSession session, String type, Object payload) {
+
+        WsMessage<Object> result = WsMessage.onSuccess(type, payload);
+        try {
+            String json = objectMapper.writeValueAsString(result);
+            return session.send(Mono.just(
+                    session.textMessage(json)
+            ));
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            return Mono.error(e);
+        }
     }
 
 }
