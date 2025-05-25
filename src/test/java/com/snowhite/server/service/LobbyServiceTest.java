@@ -82,6 +82,9 @@ class LobbyServiceTest {
                 .expectStatus().isOk()
                 .expectBody(new ParameterizedTypeReference<ApiResponse<GetRoomResponse>>() {})
                 .consumeWith(response -> {
+
+                    System.out.println(response);
+
                     ApiResponse<GetRoomResponse> apiResponse = response.getResponseBody();
 
                     assertNotNull(apiResponse);
@@ -124,7 +127,7 @@ class LobbyServiceTest {
                 .flatMap(redisTemplateForRooms::delete)
                 .blockLast();
 
-        webTestClient.get().uri("/rooms")
+        webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()

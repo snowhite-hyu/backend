@@ -21,7 +21,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,15 +70,15 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         try {
             token = jwtProvider.extractTokenFromURI(uri);
         } catch (Exception e) {
-            return session.send(Mono.just(session.textMessage("Invalid URI format"))).then();
+            return sendMessage(session, "error", "Invalid URI format" + uri).then();
         }
 
         if (token == null) {
-            return session.send(Mono.just(session.textMessage("Missing token"))).then();
+            return sendMessage(session, "error", "Missing token").then();
         }
 
         if (!jwtProvider.isTokenValid(token)) {
-            return session.send(Mono.just(session.textMessage("Invalid token"))).then();
+            return sendMessage(session, "error", "Invalid token").then();
         }
 
         long userId = jwtProvider.extractUserIdFromToken(token);
@@ -128,14 +127,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
                     default:
                     {
-                        return session.send(Mono.just(
-                                session.textMessage("Unsupported action: " + action)));
+                        return sendMessage(session, "error", "Unsupported action: " + action);
                     }
                 }
 
             } catch (Exception e) {
-                return session.send(Mono.just(
-                        session.textMessage("Invalid frame: " + e.getMessage())));
+                return sendMessage(session, "error", "Invalid websocket frame: " + e.getMessage());
             }
         };
     }
@@ -146,8 +143,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return session.send(Mono.just(
-                                session.textMessage("User not found")));
+                        return sendMessage(session, "error", "User not found");
                     }
 
                     User user = optionalUser.get();
@@ -170,8 +166,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return session.send(Mono.just(
-                                session.textMessage("User not found")));
+                        return sendMessage(session, "error", "User not found");
                     }
 
                     User user = optionalUser.get();
@@ -179,14 +174,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
                             .flatMap(room -> {
                                 if (room == null) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("Room not found: " + roomId)));
+                                    return sendMessage(session, "error", "Room not found");
                                 }
 
                                 List<User> users = room.getUsers();
                                 if (users.stream().anyMatch(u -> u.getId() == userId)) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("User already in room")));
+                                    return sendMessage(session, "error", "User already in room");
                                 }
 
                                 users.add(user);
@@ -206,8 +199,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return session.send(Mono.just(
-                                session.textMessage("User not found")));
+                        return sendMessage(session, "error", "User not found");
                     }
 
                     User user = optionalUser.get();
@@ -215,8 +207,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
                             .flatMap(room -> {
                                 if (room == null) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("Room not found: " + roomId)));
+                                    return sendMessage(session, "error", "Room not found");
                                 }
 
                                 List<User> users = room.getUsers();
@@ -224,16 +215,15 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                 boolean isInRoom = (users.stream().anyMatch(u -> u.getId() == userId));
 
                                 if (!isInRoom) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("User not in room")));
+                                    return sendMessage(session, "error", "User not in room");
                                 }
 
                                 boolean isMasterPlayer = userId == room.getMasterPlayer().getId();
 
                                 if (isMasterPlayer && users.size() > 1) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("Master player can not quit room while other users remain")
-                                    ));
+                                    return sendMessage(
+                                            session, "error", "Master player can not quit room while other users remain"
+                                    );
                                 }
 
                                 users.removeIf(u -> u.getId() == userId);

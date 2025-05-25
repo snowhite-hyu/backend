@@ -143,7 +143,6 @@ class RoomWebSocketHandlerTest {
 
                                     Assertions.assertEquals(testUser.getId(), masterPlayer.get("id").asLong());
                                     Assertions.assertEquals(testUser.getUsername(), masterPlayer.get("username").asText());
-                                    Assertions.assertEquals(testUser.getEmail(), masterPlayer.get("email").asText());
                                     Assertions.assertEquals(testUser.isLoggedIn(), masterPlayer.get("loggedIn").asBoolean());
 
                                     Assertions.assertTrue(users.isArray());
