@@ -76,7 +76,7 @@ class LobbyServiceTest {
     @Test
      void getRooms_returnsRoomList() {
 
-        webTestClient.get().uri("/rooms")
+        webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
