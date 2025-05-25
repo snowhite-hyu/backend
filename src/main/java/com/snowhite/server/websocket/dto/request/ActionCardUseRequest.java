@@ -4,7 +4,6 @@ import com.snowhite.server.domain.enums.PlayerState;
 import jakarta.validation.constraints.NotNull;
 
 public record ActionCardUseRequest (
-        @NotNull Long gameId,
         @NotNull int cardId,
         @NotNull Long playerId,
 

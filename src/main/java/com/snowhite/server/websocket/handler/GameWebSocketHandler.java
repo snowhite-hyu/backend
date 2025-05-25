@@ -7,6 +7,8 @@ import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
+import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
+import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
@@ -125,6 +127,27 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
                 .flatMap(player -> sendMessage(session, "Player-Info", player));
+    }
+
+    public Mono<Void> handleUseActionCard(WebSocketSession session, Long gameId, ActionCardUseRequest request) {
+        return gameService.useActionCard(gameId, request)
+                .flatMap(response -> {
+                    ActionCardUsedResponse singleResponse = response.getSingleResponse();
+                    ActionCardUsedResponse broadcastResponse = response.getBroadCastResponse();
+
+                    // 단일 전송
+                    if (singleResponse.changedPlayerCardId() != null) {
+                        return sendMessage(session, "Changed-Player-Card-Info", singleResponse);
+                    }
+                    // 브로드캐스트
+                    else if (broadcastResponse.changedTargetPlayerState() != null || broadcastResponse.field() != null) {
+                        return broadcastMessageToGame(gameId, "Changed-Game-Info", broadcastResponse);
+                    }
+                    // 카드 사용 불가한 경우
+                    else {
+                        return sendMessage(session, "Action-Denied", response.message());
+                    }
+                });
     }
 
     // 게임 전체에 broadcast
