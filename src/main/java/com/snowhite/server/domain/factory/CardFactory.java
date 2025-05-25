@@ -12,9 +12,8 @@ public class CardFactory {
            Boolean down_open,
            Boolean left_open,
            Boolean right_open,
-           Boolean middle_open,
-           Boolean isSpin
-   ) { return new PathCard(id, name, up_open, down_open, left_open, right_open, middle_open, isSpin); }
+           Boolean middle_open
+   ) { return new PathCard(id, name, up_open, down_open, left_open, right_open, middle_open); }
 
     public static Card createActionCard(
             Integer id,
@@ -44,10 +43,9 @@ public class CardFactory {
             Boolean left_open,
             Boolean right_open,
             Boolean middle_open,
-            Boolean isSpin,
             Boolean isGold
     ) {
-        return new DestinationCard(id, name, up_open, down_open, left_open, right_open, middle_open, isSpin, isGold);
+        return new DestinationCard(id, name, up_open, down_open, left_open, right_open, middle_open, isGold);
     }
 
 }

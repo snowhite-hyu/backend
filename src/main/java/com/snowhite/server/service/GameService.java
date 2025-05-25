@@ -66,6 +66,15 @@ public class GameService {
                 });
     }
 
+    public Mono<Game> getGameByGameId(Long gameId) {
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId);
+    }
+
+    public Mono<Player> findPlayerByGameIdAndPlayerId(Long gameId, Long playerId) {
+        return getGameByGameId(gameId)
+                .map(game -> game.findPlayer(playerId).get());
+    }
+
     // 출발지, 목적지 카드 세팅
     public void initializeNewField(Game game) {
         game.clearField();

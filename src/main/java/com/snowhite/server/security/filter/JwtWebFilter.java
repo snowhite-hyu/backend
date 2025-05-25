@@ -3,6 +3,7 @@ package com.snowhite.server.security.filter;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.repository.UserRepository;
+import com.snowhite.server.security.model.CustomUserDetails;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +15,7 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,15 +43,22 @@ public class JwtWebFilter implements WebFilter {
         if (accessToken != null && accessToken.startsWith("Bearer ")) {
             String token = accessToken.substring(7);
             if (jwtProvider.isTokenValid(token)) {
-                String userId = jwtProvider.extractClaim(token, Claims::getId);
-                Optional<User> user = userRepository.findById(Long.parseLong(userId));
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        null
-                );
-                return chain.filter(exchange)
-                        .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+                String userIdStr = jwtProvider.extractClaim(token, Claims::getId);
+                Long userId = Long.parseLong(userIdStr);
+                return Mono.fromCallable(() -> userRepository.findById(userId))
+                        .flatMap(optionalUser -> {
+                            if (optionalUser.isEmpty()) {
+                                return chain.filter(exchange);
+                            }
+                            User user = optionalUser.get();
+                            CustomUserDetails customUserDetails = new CustomUserDetails(user);
+
+                            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                                    customUserDetails,null, Collections.emptyList()
+                            );
+                            return chain.filter(exchange)
+                                    .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authenticationToken));
+                        });
             }
         }
 

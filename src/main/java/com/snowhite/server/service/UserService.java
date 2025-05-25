@@ -5,11 +5,9 @@ import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.web.dto.web.request.LoginRequestDto;
 import com.snowhite.server.web.dto.web.response.LoginResponseDto;
-import com.snowhite.server.payload.ApiResponse;
 import com.snowhite.server.payload.code.status.ErrorStatus;
-import com.snowhite.server.web.dto.EmailDto;
+import com.snowhite.server.web.dto.web.request.EmailDto;
 import com.snowhite.server.web.dto.web.request.RegisterDto;
-import com.snowhite.server.payload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -35,18 +33,17 @@ public class UserService {
             throw new BadCredentialsException(ErrorStatus._BAD_REQUEST.toString());
         String accessToken = jwtProvider.generateToken(user.getId());
         LoginResponseDto.builder().token(accessToken).build();
-        user.setLoggedIn(true);
         return Mono.just(accessToken);
     }
 
-    public Mono<ApiResponse<String>> checkLogin(Authentication authentication, ServerHttpRequest request) {
+    public Mono<String> checkLogin(Authentication authentication, ServerHttpRequest request) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return Mono.just(ApiResponse.onSuccess("비로그인 상태"));
+            return Mono.just("비로그인 상태");
         }
         String username = authentication.getName();
         String token = resolveToken(request);
         if (token == null || !jwtProvider.isTokenValid(token)) {
-            return Mono.just(ApiResponse.onSuccess("비로그인 상태"));
+            return Mono.just("비로그인 상태");
         }
 
         Map<String, LocalDateTime> tokenTimes = jwtProvider.extractTokenTimes(token);
@@ -58,7 +55,7 @@ public class UserService {
                 tokenTimes.get("now")
         );
 
-        return Mono.just(ApiResponse.onSuccess(message));
+        return Mono.just(message);
     }
 
     private String resolveToken(ServerHttpRequest request) {
@@ -69,25 +66,23 @@ public class UserService {
         return null;
     }
 
-    public Mono<ApiResponse<String>> register(RegisterDto registerDto){
-        if (checkEmail(registerDto.getEmail())) {
-            throw new GeneralException(ErrorStatus._BAD_REQUEST);
+    public Mono<Boolean> register(RegisterDto registerDto){
+        if (!checkEmail(registerDto.getEmail())) {
+            return Mono.just(false);
         }
         User user = new User();
         user.setEmail(registerDto.getEmail());
         user.setUsername(registerDto.getUsername());
         user.setPassword(bCryptPasswordEncoder.encode(registerDto.getPassword()));
         userRepository.save(user);
-        return Mono.just(ApiResponse.onSuccess("회원가입이 완료되었습니다."));
+        return Mono.just(true);
     }
 
-    public Mono<ApiResponse<String>> checkEmail(final EmailDto emailDto) {
-        boolean exists = checkEmail(emailDto.getEmail());
-        String message = exists ? "사용 중인 이메일입니다." : "사용 가능한 이메일입니다.";
-        return Mono.just(ApiResponse.onSuccess(message));
+    public Mono<Boolean> checkEmail(final EmailDto emailDto) {
+        return Mono.just(checkEmail(emailDto.getEmail()));
     }
 
     private boolean checkEmail(String email) {
-        return userRepository.findByEmail(email) != null;
+        return userRepository.findByEmail(email) == null;
     }
 }
