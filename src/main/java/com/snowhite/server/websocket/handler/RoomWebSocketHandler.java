@@ -161,7 +161,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                             opsForValue().set(ROOM_PREFIX + String.valueOf(roomId), room);
 
                     return Mono.when(saveRoom)
-                            .then(sendMessage(session, "success", room));
+                            .then(sendMessage(session, "created-room", room));
                 });
     }
 
@@ -192,21 +192,11 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                 users.add(user);
                                 room.setUsers(users);
 
-                                try {
-                                    return redisTemplateForRooms.opsForValue()
-                                            .set(ROOM_PREFIX + String.valueOf(roomId), room)
-                                            .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
-                                            .then(broadcastToRoom(userId, room, user.getUsername() + " joined the room."))
-                                            .and(session.send(Mono.just(
-                                                    session.textMessage(
-                                                            objectMapper.writeValueAsString(room)
-                                                    ))));
-                                } catch (JsonProcessingException e) {
-                                    return session.send(Mono.just(
-                                                    session.textMessage("Error join room: " + e.getMessage())
-                                            )
-                                    );
-                                }
+                                return redisTemplateForRooms.opsForValue()
+                                        .set(ROOM_PREFIX + String.valueOf(roomId), room)
+                                        .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
+                                        .then(broadcastToRoom(userId, room))
+                                        .and(sendMessage(session, "joined-room", room));
                             });
                 });
     }
@@ -264,10 +254,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                         .then(redisTemplateForSessionIds.delete(userId))
                                         .then(
                                                 isMasterPlayer && users.isEmpty() ?
-                                                        session.send(Mono.just(
-                                                                session.textMessage("Room is deleted and user left the room")
-                                                        )) :
-                                                        broadcastToRoom(userId, room, user.getUsername() + " left the room")
+                                                        sendMessage(session, "quit-success", null) :
+                                                        broadcastToRoom(userId, room)
                                                                 .then(session.send(Mono.just(
                                                                         session.textMessage("You're quit the room")
                                                                 )))
@@ -279,14 +267,15 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    private Mono<Void> broadcastToRoom(Long userId, Room room, String message) {
+    private Mono<Void> broadcastToRoom(Long userId, Room room) {
+
         List<Mono<Void>> broadcasts = room.getUsers().stream()
                 .filter(user -> user.getId() != userId)
                 .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
                         .flatMap(sessionId -> {
                             WebSocketSession userSession = sessionMap.get(sessionId);
                             if (userSession != null && userSession.isOpen()) {
-                                return userSession.send(Mono.just(userSession.textMessage(message)));
+                                return sendMessage(userSession, "room-users", room.getUsers());
                             } else {
                                 return Mono.empty();
                             }
@@ -298,9 +287,10 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
     private Mono<Void> sendMessage(WebSocketSession session, String type, Object payload) {
 
-        WsMessage<Object> result = WsMessage.onSuccess(type, payload);
         try {
-            String json = objectMapper.writeValueAsString(result);
+            String json = objectMapper.writeValueAsString(
+                    WsMessage.onSuccess(type, payload)
+            );
             return session.send(Mono.just(
                     session.textMessage(json)
             ));
