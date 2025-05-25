@@ -256,10 +256,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                                                 isMasterPlayer && users.isEmpty() ?
                                                         sendMessage(session, "quit-success", null) :
                                                         broadcastToRoom(userId, room)
-                                                                .then(session.send(Mono.just(
-                                                                        session.textMessage("You're quit the room")
-                                                                )))
-                                        ).and(Mono.defer(() ->
+                                                                .and(sendMessage(session, "quit-success", null))
+                                        ).then(Mono.defer(() ->
                                                 sessionMap.remove(session.getId())
                                                         .close().then())
                                         );
