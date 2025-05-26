@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record ActionCardUseRequest (
         @NotNull int cardId,
-        @NotNull Long playerId,
+        @NotNull Long usePlayerId,
 
         Long targetPlayerId,
         Integer locationX,

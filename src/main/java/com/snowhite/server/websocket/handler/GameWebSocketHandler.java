@@ -3,15 +3,17 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
-import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
+import com.snowhite.server.websocket.dto.response.View;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -90,6 +92,19 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     long playerId = Long.parseLong(payload.get("playerId").asText());
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
+                case "use-action-card" : {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    ActionCardUseRequest request = new ActionCardUseRequest(
+                            payload.get("cardId").asInt(),
+                            payload.get("usePlayerId").asLong(),
+                            payload.has("targetPlayerId") ? payload.get("targetPlayerId").asLong() : null,
+                            payload.has("locationX") ? payload.get("locationX").asInt() : null,
+                            payload.has("locationY") ? payload.get("locationY").asInt() : null,
+                            payload.has("targetRepairState") ?
+                                    objectMapper.treeToValue(payload.get("targetRepairState"), PlayerState.class) : null
+                    );
+                    return handleUseActionCard(session, gameId, request);
+                }
 
                 default:
                     return sendMessage(session, "error", null);
@@ -132,20 +147,19 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseActionCard(WebSocketSession session, Long gameId, ActionCardUseRequest request) {
         return gameService.useActionCard(gameId, request)
                 .flatMap(response -> {
-                    ActionCardUsedResponse singleResponse = response.getSingleResponse();
-                    ActionCardUsedResponse broadcastResponse = response.getBroadCastResponse();
-
-                    // 단일 전송
-                    if (singleResponse.changedPlayerCardId() != null) {
-                        return sendMessage(session, "Changed-Player-Card-Info", singleResponse);
+                    if(!"success".equals(response.message())) {
+                        // view error로 unicast
+                        String serializedPayload = serializeWithView(response, View.Error.class, "Action-Card-Use-Denied");
+                        return sendMessageWithSerializedPayload(session, serializedPayload);
                     }
-                    // 브로드캐스트
-                    else if (broadcastResponse.changedTargetPlayerState() != null || broadcastResponse.field() != null) {
-                        return broadcastMessageToGame(gameId, "Changed-Game-Info", broadcastResponse);
-                    }
-                    // 카드 사용 불가한 경우
                     else {
-                        return sendMessage(session, "Action-Denied", response.message());
+                        // view broad, unicast 각각
+                        String unicastPayload = serializeWithView(response, View.Unicast.class, "Action-Card-Use");
+                        String broadcastPayload = serializeWithView(response, View.Broadcast.class, "Action-Card-Use");
+                        Mono<Void> unicast = sendMessageWithSerializedPayload(session, unicastPayload);
+                        Mono<Void> broadcast = broadcastWithSerializedPayload(gameId, unicastPayload);
+
+                        return Mono.when(unicast, broadcast);
                     }
                 });
     }
@@ -195,4 +209,37 @@ public class GameWebSocketHandler implements WebSocketHandler {
             return Mono.error(e);
         }
     }
+
+    // view에 따라 직렬화
+    public String serializeWithView(Object payload, Class<?> view, String type) {
+        WsMessage<Object> wsMessage = WsMessage.onSuccess(type, payload);
+        try {
+            ObjectWriter writer = objectMapper.writerWithView(view);
+            return writer.writeValueAsString(wsMessage);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Serialization failed", e);
+        }
+    }
+
+    // 직렬화된 메시지 전송
+    public Mono<Void> sendMessageWithSerializedPayload(WebSocketSession session, String serializedPayload) {
+        return session.send(Mono.just(session.textMessage(serializedPayload)));
+    }
+
+    // 직렬화된 메시지 브로드캐스트
+    public Mono<Void> broadcastWithSerializedPayload(Long gameId, String serializedPayload) {
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+                .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
+                .flatMap(player -> {
+                    Long playerId = player.getPlayerId();
+                    return reactiveRedisTemplateForSession.opsForValue().get(playerId)
+                            .flatMap(sessionId -> {
+                                WebSocketSession sessionToSend = sessionMap.get(sessionId);
+                                return sessionToSend == null ? Mono.empty() : sessionToSend.send(Mono.just(sessionToSend.textMessage(serializedPayload)));
+                            });
+                })
+                .then();
+    }
+
 }

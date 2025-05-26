@@ -170,14 +170,14 @@ public class GameService {
                 .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key));
     }
 
-    private Player findPlayerById(Game game, Long playerId) {
+    private Player findPlayerByPlayerId(Game game, Long playerId) {
         return game.getPlayers().stream()
                 .filter(player -> player.getPlayerId() == playerId)
                 .findFirst()
                 .orElse(null);
     }
 
-    private Mono<Card> findCardById(Integer cardId) {
+    private Mono<Card> findCardByCardId(Integer cardId) {
         return getAllCardsFromRedis()
                 .filter(card -> card.getId().equals(cardId))
                 .next();
@@ -193,52 +193,111 @@ public class GameService {
     private Mono<ActionCardUsedResponse> saveGameToRedisById(Game game, ActionCardUsedResponse response) {
         return reactiveRedisTemplateForGame.opsForValue()
                 .set(GAME_PREFIX + response.gameId(), game)
-                .thenReturn(ActionCardUsedResponse.of(response.message(), response.gameId(), response.changedPlayerCardId(), response.changedTargetPlayerState(), null));
+                .thenReturn(response);
     }
 
     public Mono<ActionCardUsedResponse> useActionCard(Long gamId, ActionCardUseRequest request) {
 
         long gameId = gamId;
-        long playerId = request.playerId();
+        long playerId = request.usePlayerId();
         int actionCardId = request.cardId();
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
                 .flatMap(game -> {
-                    Player player = findPlayerById(game, playerId);
-                    Player targetPlayer = findPlayerById(game, request.targetPlayerId());
+                    // TODO: custom exception으로 예외 처리
+                    Player player = findPlayerByPlayerId(game, playerId);
+                    Player targetPlayer = findPlayerByPlayerId(game, request.targetPlayerId());
 
-                    if (player == null || targetPlayer == null) { return Mono.just(ActionCardUsedResponse.of("player 정보가 유효하지 않습니다.", gameId,null, null, null)); }
-                    if (!player.hasCard(actionCardId)) { return Mono.just(ActionCardUsedResponse.of("해당 action card를 소유하고 있지 않습니다.", gameId,null, null, null)); }
-                    return findCardById(actionCardId)
+                    if (player == null) {
+                        return Mono.just(new ActionCardUsedResponse.Builder()
+                                .message("player 정보가 유효하지 않습니다.")
+                                .gameId(gameId)
+                                .errorUsePlayerId(playerId)
+                                .build());
+                    }
+                    if (!player.hasCard(actionCardId)) {
+                        return Mono.just(new ActionCardUsedResponse.Builder()
+                                .message("해당 action card를 소유하고 있지 않습니다.")
+                                .gameId(gameId)
+                                .actionCardId(actionCardId)
+                                .errorUsePlayerId(playerId)
+                                .build());
+                    }
+                    return findCardByCardId(actionCardId)
                             .flatMap(card -> {
-                                if (!(card instanceof ActionCard)) { return Mono.just(ActionCardUsedResponse.of("해당 카드는 action card가 아닙니다.", gameId,null, null, null)); }
+                                if (!(card instanceof ActionCard)) {
+                                    return Mono.just(new ActionCardUsedResponse.Builder()
+                                            .message("해당 카드는 action card가 아닙니다.")
+                                            .gameId(gameId)
+                                            .actionCardId(actionCardId)
+                                            .build());
+                                }
 
                                 ActionCard actionCard = (ActionCard) card;
 
                                 switch(actionCard.getActionCardType()) {
                                     case ROCKFALL -> {
-                                        if (request.locationX() == null || request.locationY() == null) { return Mono.just(ActionCardUsedResponse.of("request에 field의 x, y 값이 없습니다.", gameId,null, null, null)); }
+                                        if (request.locationX() == null || request.locationY() == null) {
+                                            return Mono.just(new ActionCardUsedResponse.Builder()
+                                                    .message("request에 field의 x, y 위치가 유효하지 않습니다.")
+                                                    .gameId(gameId)
+                                                    .errorUsePlayerId(playerId)
+                                                    .build());
+                                        }
                                         int locationX = request.locationX();
                                         int locationY = request.locationY();
 
-                                        if (!game.isPossibleLocationToGetCard(locationX, locationY))
-                                            { return Mono.just(ActionCardUsedResponse.of("해당 위치에 사용 불가합니다.", gameId,null, null, null)); }
+                                        if (!game.isPossibleLocationToGetCard(locationX, locationY)) {
+                                            return Mono.just(new ActionCardUsedResponse.Builder()
+                                                    .message("해당 위치에 사용 불가합니다.")
+                                                    .gameId(gameId)
+                                                    .errorUsePlayerId(playerId)
+                                                    .errorLocationX(request.locationX())
+                                                    .errorLocationY(request.locationY())
+                                                    .build());
+                                        }
                                         // rockfall 적용: filed에서 카드 제거
                                         game.removeCard(locationX, locationY);
                                         // 사용한 카드 제거
                                         player.removeCard(actionCardId);
-                                        return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId, null, game.getField()));
+                                        return saveGameToRedisById(game,
+                                                new ActionCardUsedResponse.Builder()
+                                                        .message("success")
+                                                        .gameId(gameId)
+                                                        .usePlayerId(playerId)
+                                                        .actionCardId(actionCardId)
+                                                        .field(game.getField())
+                                                        .build());
                                     }
                                     case MAP -> {
-                                        if (request.locationX() == null || request.locationY() == null) { return Mono.just(ActionCardUsedResponse.of("request에 field의 x, y 값이 없습니다.", gameId,null, null, null)); }
+                                        if (request.locationX() == null || request.locationY() == null) {
+                                            return Mono.just(new ActionCardUsedResponse.Builder()
+                                                    .message("request에 field의 x, y 위치가 유효하지 않습니다.")
+                                                    .gameId(gameId)
+                                                    .build());
+                                        }
                                         int locationX = request.locationX();
                                         int locationY = request.locationY();
 
-                                        if ( !game.isFlipped(locationX, locationY)) { return Mono.just(ActionCardUsedResponse.of("이미 공개된 목적지 카드입니다.", gameId,null, null, null)); }
+                                        if ( !game.isFlipped(locationX, locationY)) {
+                                            return Mono.just(new ActionCardUsedResponse.Builder()
+                                                    .message("이미 공개된 목적지 카드입니다.")
+                                                            .gameId(gameId)
+                                                            .errorUsePlayerId(playerId)
+                                                            .errorLocationX(locationX)
+                                                            .errorLocationY(locationY)
+                                                    .build());
+                                        }
                                         // TODO: map 적용: response에 dest cardId 추가!!! && 로직 추가
                                         // 사용한 카드 제거
                                         player.removeCard(actionCardId);
-                                        return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId,null, null));
+                                        return saveGameToRedisById(game,
+                                                new ActionCardUsedResponse.Builder()
+                                                        .message("success")
+                                                        .gameId(gameId)
+                                                        .usePlayerId(playerId)
+                                                        .usePlayerCards(player.getCards())
+                                                        .build());
                                     }
                                     default -> {
                                         List<PlayerState> repairState = new ArrayList<>(); // repair 대상이 될 수 있는 state
@@ -277,27 +336,62 @@ public class GameService {
                                                         brokenState.add(PlayerState.BROKEN_MINCART);
                                                     }
                                                     default -> {
-                                                        return Mono.just(ActionCardUsedResponse.of("사용 가능한 action type이 아닙니다.", gameId ,null, null, null));
+                                                        return Mono.just(new ActionCardUsedResponse.Builder()
+                                                                .message("사용 가능한 action type이 아닙니다.")
+                                                                .gameId(gameId)
+                                                                .errorUsePlayerId(playerId)
+                                                                .actionCardId(actionCardId)
+                                                                .build());
                                                     }
                                                 }
                                                 // broken
                                                 boolean canBroken = brokenState.stream().noneMatch(targetPlayer::hasState);
-                                                if (!canBroken) { return Mono.just(ActionCardUsedResponse.of("target player에게 해당 카드 사용이 불가합니다.", gameId,null, null, null));}
+                                                if (!canBroken) { return Mono.just(new ActionCardUsedResponse.Builder()
+                                                        .message("target player에게 해당 카드 사용이 불가합니다.")
+                                                        .gameId(gameId)
+                                                        .errorUsePlayerId(playerId)
+                                                        .errorTargetPlayerId(request.targetPlayerId())
+                                                        .actionCardId(actionCardId)
+                                                        .build());
+                                                }
                                                 brokenState.forEach(targetPlayer::addPlayerState); // broken 상태 추가
                                                 // 사용한 카드 제거
                                                 player.removeCard(actionCardId);
-                                                return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId, brokenState, null));
+                                                return saveGameToRedisById(game,
+                                                        new ActionCardUsedResponse.Builder()
+                                                                .message("success")
+                                                                .gameId(gameId)
+                                                                .targetPlayerId(playerId)
+                                                                .usePlayerCards(player.getCards())
+                                                                .targetPlayerId(request.targetPlayerId())
+                                                                .targetPlayerState(new ArrayList<>(targetPlayer.getState()))
+                                                                .build());
                                             }
                                         }
                                         // repair
                                         PlayerState targetState = request.targetRepairState();
                                         // targetPlayer에게 매칭되는 broken state가 있는지 && 해당 action card로 수리 가능한지
                                         boolean canRepair = repairState.stream().anyMatch(targetPlayer::hasState) && repairState.contains(targetState); 
-                                        if (!canRepair) { return Mono.just(ActionCardUsedResponse.of("target player에게 해당 카드 사용이 불가합니다.", gameId,null, null, null)); }
+                                        if (!canRepair) { return Mono.just(new ActionCardUsedResponse.Builder()
+                                                .message("target player에게 해당 카드 사용이 불가합니다.")
+                                                .gameId(gameId)
+                                                .errorUsePlayerId(playerId)
+                                                .errorTargetPlayerId(request.targetPlayerId())
+                                                .actionCardId(actionCardId)
+                                                .build());
+                                        }
                                         targetPlayer.removePlayerState(targetState); // repair = broken 상태 제거
                                         // 사용한 카드 제거
                                         player.removeCard(actionCardId);
-                                        return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId, List.of(targetState), null));
+                                        return saveGameToRedisById(game,
+                                                new ActionCardUsedResponse.Builder()
+                                                        .message("success")
+                                                        .gameId(gameId)
+                                                        .usePlayerId(playerId)
+                                                        .usePlayerCards(player.getCards())
+                                                        .targetPlayerId(request.targetPlayerId())
+                                                        .targetPlayerState(new ArrayList<>(targetPlayer.getState()))
+                                                        .build());
                                     }
 
                                 }

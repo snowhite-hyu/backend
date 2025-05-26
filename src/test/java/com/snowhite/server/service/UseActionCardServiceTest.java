@@ -95,7 +95,7 @@ public class UseActionCardServiceTest {
                     assertEquals(GAME_ID, res.gameId());
 
                     // 3. changedPlayerCardId 검사
-                    assertEquals(request.cardId(), res.changedPlayerCardId());
+                    assertFalse(res.usePlayerCards().contains(request.cardId()));
 
                     // 4. changedTargetPlayerState 검사
                     assertTrue(player2.getState().contains(PlayerState.BROKEN_PICKAXE));

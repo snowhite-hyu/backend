@@ -1,8 +1,10 @@
 package com.snowhite.server.domain.session;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
+import com.snowhite.server.websocket.dto.response.View;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -11,12 +13,22 @@ import java.util.List;
 
 @Getter
 public class Player {
-
+    @JsonView({View.Unicast.class, View.Broadcast.class})
     private final long playerId;
+
+    @JsonView(View.Broadcast.class)
     private final String playerName;
+
+    @JsonView(View.Unicast.class)
     private PlayerRole playerRole;
+
+    @JsonView(View.Unicast.class)
     private final List<Integer> cards;
+
+    @JsonView(View.Broadcast.class)
     private EnumSet<PlayerState> state;
+
+    @JsonView(View.Broadcast.class)
     private int gold;
 
     public Player(long playerId, String playerName) {
