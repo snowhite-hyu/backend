@@ -5,6 +5,7 @@ import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.factory.CardFactory;
 import com.snowhite.server.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -19,6 +20,7 @@ public class CardInitializer {
 
     private static final String CARD_PREFIX = "card:";
 
+    @Autowired
     private final CardRepository cardRepository;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
     private final Boolean SPIN = true;

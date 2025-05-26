@@ -18,7 +18,6 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -194,7 +193,7 @@ public class GameService {
     private Mono<ActionCardUsedResponse> saveGameToRedisById(Game game, ActionCardUsedResponse response) {
         return reactiveRedisTemplateForGame.opsForValue()
                 .set(GAME_PREFIX + response.gameId(), game)
-                .thenReturn(ActionCardUsedResponse.of(response.message(), response.gameId(), response.changedPlayerCard(), response.changedTargetPlayerState()));
+                .thenReturn(ActionCardUsedResponse.of(response.message(), response.gameId(), response.changedPlayerCardId(), response.changedTargetPlayerState(), null));
     }
 
     public Mono<ActionCardUsedResponse> useActionCard(Long gamId, ActionCardUseRequest request) {
@@ -224,7 +223,8 @@ public class GameService {
 
                                         if (!game.isPossibleLocationToGetCard(locationX, locationY))
                                             { return Mono.just(ActionCardUsedResponse.of("해당 위치에 사용 불가합니다.", gameId,null, null, null)); }
-
+                                        // rockfall 적용: filed에서 카드 제거
+                                        game.removeCard(locationX, locationY);
                                         // 사용한 카드 제거
                                         player.removeCard(actionCardId);
                                         return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId, null, game.getField()));
@@ -235,7 +235,7 @@ public class GameService {
                                         int locationY = request.locationY();
 
                                         if ( !game.isFlipped(locationX, locationY)) { return Mono.just(ActionCardUsedResponse.of("이미 공개된 목적지 카드입니다.", gameId,null, null, null)); }
-
+                                        // TODO: map 적용: response에 dest cardId 추가!!! && 로직 추가
                                         // 사용한 카드 제거
                                         player.removeCard(actionCardId);
                                         return saveGameToRedisById(game, ActionCardUsedResponse.of("success", gameId, actionCardId,null, null));
