@@ -302,8 +302,6 @@ public class GameService {
 
                                 }
                             });
-                })
-                .switchIfEmpty(Mono.just(ActionCardUsedResponse.of("game이 존재하지 않습니다.", gameId,null, null, null)))
-                .onErrorResume(e -> Mono.just(ActionCardUsedResponse.of("error 발생", gameId,null, null, null)));
+                });
     }
 }

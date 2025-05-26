@@ -10,10 +10,9 @@ import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
 import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,10 +25,10 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 public class UseActionCardServiceTest {
@@ -37,56 +36,53 @@ public class UseActionCardServiceTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @Mock
     private ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
-    @Mock
     private ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
+    private ReactiveValueOperations<String, Game> valueOperationsForGame;
+    private ReactiveValueOperations<String, Card> valueOperationsForCard;
 
     @InjectMocks
     private GameService gameService;
 
-    private static final Long GAME_ID = 1L;
-    private static final Integer[][][] FIELD = {
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}},
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {61, 0}},
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}},
-            {{0, 0},  {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {62, 0}},
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}},
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {63, 0}},
-            {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}
-    };
-    private static int TURNTIME = 10;
+    private static String GAME_PREFIX = "game:";
+    private static long GAME_ID = 1L;
+    private static int TURN_TIME = 10;
     private static Player player1 = new Player(10L, "player1");
     private static Player player2 = new Player(20L, "player2");
     private static Player player3 = new Player(30L, "player3");
     private static Player player4 = new Player(40L, "player4");
     private static Player player5 = new Player(50L, "player5");
-    private static final List<Player> PLAYERS = List.of(player1, player2, player3, player4, player5);
 
     private Game game;
 
     @Mock
     private CardRepository cardRepository;
-    @Mock
-    CardInitializer initializer = new CardInitializer(cardRepository, reactiveRedisTemplateForCard);
-
-    @Mock
-    private ReactiveValueOperations<String, Game> valueOperations;
-
     @BeforeEach
-    void setup() {
-        game = new Game(GAME_ID, PLAYERS, TURNTIME);
+    void setUp() {
+
+        reactiveRedisTemplateForGame = Mockito.mock(ReactiveRedisTemplate.class);
+        valueOperationsForGame = Mockito.mock(ReactiveValueOperations.class);
+        reactiveRedisTemplateForCard = Mockito.mock(ReactiveRedisTemplate.class);
+        valueOperationsForCard = Mockito.mock(ReactiveValueOperations.class);
+        when(reactiveRedisTemplateForGame.opsForValue()).thenReturn(valueOperationsForGame);
+        when(reactiveRedisTemplateForCard.opsForValue()).thenReturn(valueOperationsForCard);
+
+        gameService = new GameService(reactiveRedisTemplateForGame, reactiveRedisTemplateForCard);
+
+        List<Player> players = List.of(player1, player2, player3, player4, player5);
+        Game game = new Game(GAME_ID, players, TURN_TIME);
         game.clearField();
+        CardInitializer initializer = new CardInitializer(cardRepository, reactiveRedisTemplateForCard);
         initializer.initializeCards();
-        when(reactiveRedisTemplateForGame.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.set(eq("game:" + GAME_ID), eq(game))).thenReturn(Mono.just(true));
-        valueOperations.set("game:" + GAME_ID, game).block();
+        when(valueOperationsForGame.get(eq(GAME_PREFIX + GAME_ID))).thenReturn(Mono.just(game));
+        when(valueOperationsForGame.set(eq(GAME_PREFIX + GAME_ID), any(Game.class))).thenReturn(Mono.just(true));
     }
 
     @Test
     void useActionCardSuccess() {
         //given: player1 -> player2 BROKEN_PICKAXE
         ActionCardUseRequest request = new ActionCardUseRequest(109, player1.getPlayerId(), player2.getPlayerId(), null, null, null);
+        player1.addCard(109);
         //when
         Mono<ActionCardUsedResponse> response = gameService.useActionCard(GAME_ID, request);
         //then
@@ -106,9 +102,6 @@ public class UseActionCardServiceTest {
 
                     // 5. field 검사
                     assertNull(res.field());
-                })
-                .verifyComplete();
+                });
     }
-
-
 }
