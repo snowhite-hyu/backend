@@ -37,6 +37,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
 
+
     // 세션 저장 후 처리
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -89,6 +90,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
 
+                case "drop-card": {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    int cardId = Integer.parseInt(payload.get("cardId").asText());
+                    return handleDropCard(session, gameId, playerId, cardId);
+                }
+
                 default:
                     return sendMessage(session, "error", null);
             }
@@ -127,6 +135,10 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMap(player -> sendMessage(session, "Player-Info", player));
     }
 
+    public Mono<Void> handleDropCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId) {
+        return gameService.dropCard(gameId, playerId, cardId)
+                .flatMap(game -> sendMessage(session, "Card-Dropped", game));
+    }
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
 

@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +24,26 @@ public class GameService {
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
+
+    // 카드 버리기
+    public Mono<Game> dropCard(Long gameId, Long playerId, int cardId) {
+        String gameKey = GAME_PREFIX + gameId;
+        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
+                .flatMap(game -> {
+                    Optional<Player> optionalPlayer = game.findPlayer(playerId);
+                    if (optionalPlayer.isEmpty()) {
+                        return Mono.error(new IllegalArgumentException("플레이어가 없음"));
+                    }
+                    Player player = optionalPlayer.get();
+                    List<Integer> cards = player.getCards();
+                    if (!cards.contains(cardId)) {
+                        return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
+                    }
+                    cards.remove((Integer) cardId);
+                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(game);
+                });
+    }
 
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {

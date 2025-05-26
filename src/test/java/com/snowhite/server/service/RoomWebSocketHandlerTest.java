@@ -81,7 +81,6 @@ class RoomWebSocketHandlerTest {
         testUser.setUsername("testuser");
         testUser.setPassword(passwordEncoder.encode("password"));
         testUser.setEmail("testuser@test.com");
-        testUser.setLoggedIn(true);
         testUser = userRepository.save(testUser);
 
         jwtToken = jwtProvider.generateToken(testUser.getId());
@@ -127,7 +126,6 @@ class RoomWebSocketHandlerTest {
                                     Assertions.assertEquals(testUser.getId(), masterPlayerNode.get("id").asLong());
                                     Assertions.assertEquals(testUser.getUsername(), masterPlayerNode.get("username").asText());
                                     Assertions.assertEquals(testUser.getEmail(), masterPlayerNode.get("email").asText());
-                                    Assertions.assertEquals(testUser.isLoggedIn(), masterPlayerNode.get("loggedIn").asBoolean());
 
                                     session.close()
                                             .subscribe();
@@ -152,7 +150,6 @@ class RoomWebSocketHandlerTest {
         joinUser.setUsername("joinUser");
         joinUser.setEmail("joinUser@example.com");
         joinUser.setPassword("password");
-        joinUser.setLoggedIn(true);
 
         userRepository.save(joinUser);
 
