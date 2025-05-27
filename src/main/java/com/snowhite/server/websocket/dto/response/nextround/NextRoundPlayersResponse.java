@@ -6,7 +6,7 @@ import java.util.List;
 
 public record NextRoundPlayersResponse(
         List<SecretPlayerResponse> players
-) implements NextRonudResponse{
+) implements NextRoundResponse {
     public static NextRoundPlayersResponse of(List<SecretPlayerResponse> players) {
         return new NextRoundPlayersResponse(players);
     }

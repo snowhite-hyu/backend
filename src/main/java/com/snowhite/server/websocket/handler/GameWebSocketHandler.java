@@ -75,7 +75,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "start-round": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    return handleStartRound(session, gameId);
+                    return handleNextRound(session, gameId);
                 }
 
                 case "get-game-state": {
@@ -108,9 +108,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
+    public Mono<Void> handleNextRound(WebSocketSession session, Long gameId) {
 
-        return gameService.setupGameForNewRound(gameId)
+        return gameService.processNextRoundOrFinishGame(gameId)
                 .flatMap(game -> broadcastMessageToGame(gameId, "Round-Started", game));
 
     }

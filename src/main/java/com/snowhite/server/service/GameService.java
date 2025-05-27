@@ -3,6 +3,9 @@ package com.snowhite.server.service;
 import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.websocket.dto.response.GameResponse;
+import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -42,8 +45,8 @@ public class GameService {
                 .map(game -> game.getJoinedPlayerIds().size() == game.getPlayers().size());
     }
 
-    // 새로운 round 시작을 위한 모든 field 초기화
-    public Mono<Game> setupGameForNewRound(Long gameId) {
+    // 새로운 round 시작 또는 게임 종료
+    public Mono<Game> processNextRoundOrFinishGame(Long gameId) {
 
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
                 .flatMap(game -> {
@@ -58,6 +61,14 @@ public class GameService {
                             .set(GAME_PREFIX + gameId, game)
                             .thenReturn(game);
                 });
+    }
+
+    public Mono<List<SecretPlayerResponse>> getAllSecretPlayerInfo(Long gameId) {
+
+        return getGameByGameId(gameId)
+                .map(game -> game.getPlayers().stream()
+                        .map(SecretPlayerResponse::from)
+                        .toList());
     }
 
     public Mono<Game> getGameByGameId(Long gameId) {
