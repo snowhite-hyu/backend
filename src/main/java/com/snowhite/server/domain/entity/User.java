@@ -4,10 +4,12 @@ import com.snowhite.server.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Getter
 @Setter
 @Entity
+@JsonIgnoreProperties({"email", "password", "createdAt", "updatedAt"})
 @Table(name = "users")
 public class User extends BaseEntity {
 
@@ -23,8 +25,5 @@ public class User extends BaseEntity {
 
     @Column(name = "password", nullable = false)
     private String password;
-
-    @Column(name = "logged_in", nullable = false)
-    private boolean loggedIn = false;
 
 }
