@@ -12,7 +12,7 @@ public record GameResponse(
         int round,
         GameState gameState,
         Integer[][][] field,
-        int deckCount,
+        int deckSize,
         long currentTurnPlayerId,
         int turnTime
 ) {

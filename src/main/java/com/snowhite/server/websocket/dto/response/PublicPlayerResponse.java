@@ -6,7 +6,7 @@ import com.snowhite.server.domain.session.Player;
 public record PublicPlayerResponse(
         long playerId,
         String playerName,
-        int cardCount,
+        int handSize,
         PlayerState state,
         int gold
 ) {
