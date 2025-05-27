@@ -89,6 +89,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
 
+                case "get-card": {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    return handleGetCard(gameId, playerId);
+                }
+
                 default:
                     return sendMessage(session, "error", null);
             }
@@ -125,6 +131,11 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
                 .flatMap(player -> sendMessage(session, "Player-Info", player));
+    }
+
+    // 카드 가져오기
+    public Mono<Void> handleGetCard(Long gameId, Long playerId) {
+        return gameService.getCard(gameId, playerId).then();
     }
 
     // 게임 전체에 broadcast
