@@ -1,4 +1,4 @@
-package com.snowhite.server.web.dto.web.response;
+package com.snowhite.server.web.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;

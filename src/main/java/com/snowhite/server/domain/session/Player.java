@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import lombok.Getter;

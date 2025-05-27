@@ -1,4 +1,4 @@
-package com.snowhite.server.web.dto.web.request;
+package com.snowhite.server.web.dto.request;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

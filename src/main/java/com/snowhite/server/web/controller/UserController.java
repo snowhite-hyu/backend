@@ -1,13 +1,13 @@
 package com.snowhite.server.web.controller;
 
-import com.snowhite.server.web.dto.web.request.LoginRequestDto;
+import com.snowhite.server.web.dto.request.LoginRequestDto;
 import com.snowhite.server.payload.ApiResponse;
-import com.snowhite.server.web.dto.web.request.EmailDto;
-import com.snowhite.server.web.dto.web.request.RegisterDto;
+import com.snowhite.server.web.dto.request.EmailDto;
+import com.snowhite.server.web.dto.request.RegisterDto;
 import com.snowhite.server.service.UserService;
-import com.snowhite.server.web.dto.web.response.EmailCheckResponseDto;
-import com.snowhite.server.web.dto.web.response.LoginResponseDto;
-import com.snowhite.server.web.dto.web.response.RegisterResponseDto;
+import com.snowhite.server.web.dto.response.EmailCheckResponseDto;
+import com.snowhite.server.web.dto.response.LoginResponseDto;
+import com.snowhite.server.web.dto.response.RegisterResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
