@@ -3,7 +3,6 @@ package com.snowhite.server.domain.session;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
-import com.snowhite.server.websocket.dto.response.View;
 import lombok.Getter;
 
 import java.util.ArrayList;
@@ -19,7 +18,6 @@ public class Game {
     private List<Long> joinedPlayerIds;
     private int round;
     private GameState gameState;
-    @JsonView(View.Broadcast.class)
     private Integer[][][] field;
     private List<Integer> deck;
     private long currentTurnPlayerId;

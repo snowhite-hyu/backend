@@ -1,53 +1,47 @@
 package com.snowhite.server.websocket.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.PlayerState;
 
 import java.util.List;
 
 public record ActionCardUsedResponse(
         // 공통 필드
-        @JsonView({View.Unicast.class, View.Broadcast.class, View.Error.class})
         Long gameId,
-        @JsonView({View.Unicast.class, View.Broadcast.class, View.Error.class})
         String message,
-        @JsonView({View.Unicast.class, View.Broadcast.class, View.Error.class})
         Integer actionCardId,
-
         // 카드 사용 불가 응답
-        @JsonView(View.Error.class)
         Long errorUsePlayerId,
-
-        @JsonView(View.Error.class)
         Long errorTargetPlayerId,
-
-        @JsonView(View.Error.class)
         Integer errorLocationX,
-
-        @JsonView(View.Error.class)
         Integer errorLocationY,
-
         // 유니캐스트 응답
-
-        @JsonView(View.Unicast.class)
         Long usePlayerId,
-
-        @JsonView(View.Unicast.class)
         List<Integer> usePlayerCards,
-
-        @JsonView(View.Unicast.class)
         Integer destCardId,
-
         // 브로드캐스트 응답
-        @JsonView(View.Broadcast.class)
         Long targetPlayerId,
-
-        @JsonView(View.Broadcast.class)
         List<PlayerState> targetPlayerState,
-
-        @JsonView(View.Broadcast.class)
         Integer[][][] field
 ) {
+        public ActionCardUsedResponse getUnicast() {
+                return new Builder()
+                        .gameId(gameId)
+                        .message(message)
+                        .actionCardId(actionCardId)
+                        .usePlayerId(usePlayerId)
+                        .usePlayerCards(usePlayerCards)
+                        .build();
+        }
+        public ActionCardUsedResponse getBroadcast() {
+                return new Builder()
+                        .gameId(gameId)
+                        .message(message)
+                        .actionCardId(actionCardId)
+                        .targetPlayerId(targetPlayerId)
+                        .targetPlayerState(targetPlayerState)
+                        .field(field)
+                        .build();
+        }
         public static class Builder {
                 private Long gameId;
                 private String message;
@@ -145,5 +139,6 @@ public record ActionCardUsedResponse(
                                 field
                         );
                 }
+
         }
 }

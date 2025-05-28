@@ -9,7 +9,7 @@ import lombok.Getter;
 public enum PlayerState {
     NORMAL("normal"),
     BROKEN_PICKAXE("broken_pickaxe"),
-    BROKEN_MINCART("broken_mincart"),
+    BROKEN_MINECART("broken_mincart"),
     BROKEN_LANTERN("broken_lantern");
     private final String description;
 
