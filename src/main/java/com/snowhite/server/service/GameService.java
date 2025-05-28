@@ -52,7 +52,7 @@ public class GameService {
                     boolean isFinished = game.startNextRoundAndReturnFinished();
                     if (isFinished) {
                         return setGameToRedis(gameId, game)
-                                .then(getAllSecretPlayerInfo(gameId))
+                                .then(getAllSecretPlayerInfo(game))
                                 .map(NextRoundPlayersResponse::of);
                     } else {
                         return setGameToRedis(gameId, game)
@@ -61,12 +61,13 @@ public class GameService {
                 });
     }
 
-    public Mono<List<SecretPlayerResponse>> getAllSecretPlayerInfo(Long gameId) {
+    public Mono<List<SecretPlayerResponse>> getAllSecretPlayerInfo(Game game) {
 
-        return getGameByGameId(gameId)
-                .map(game -> game.getPlayers().stream()
+        return Mono.just(
+                game.getPlayers().stream()
                         .map(SecretPlayerResponse::from)
-                        .toList());
+                        .toList()
+        );
     }
 
     public Mono<Game> getGameByGameId(Long gameId) {

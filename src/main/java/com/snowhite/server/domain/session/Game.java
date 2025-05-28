@@ -4,10 +4,7 @@ import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.Getter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Getter
 public class Game {
@@ -19,17 +16,19 @@ public class Game {
     private GameState gameState;
     private Integer[][][] field;
     private List<Integer> deck;
+    private List<Integer> goldCards;
     private long currentTurnPlayerId;
     private int turnTime;   // second
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
         this.players = players;
-        this.joinedPlayerIds = new ArrayList<>();
+        joinedPlayerIds = new ArrayList<>();
         round = 0;
         gameState = GameState.WAITING;
         field = new Integer[7][9][2];
         deck = new ArrayList<>();
+        goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
     }
@@ -83,7 +82,7 @@ public class Game {
     }
 
     private void clearDeck() {
-        this.deck = new ArrayList<>();
+        deck.clear();
     }
 
     private void drawAndGiveCardToPlayer(long playerId) {
@@ -122,6 +121,10 @@ public class Game {
 
     private void shuffleDeck() {
         Collections.shuffle(deck);
+    }
+
+    private void shuffleGoldCards() {
+        Collections.shuffle(goldCards);
     }
 
     private long nextTurn() {
@@ -257,6 +260,98 @@ public class Game {
         }
 
         shuffleDeck();
+    }
+
+    private void setGoldCards() {
+        goldCards.clear();
+        for (int i = 0; i < 16; i++) {
+            goldCards.add(1);
+        }
+        for (int i = 0; i < 8; i++) {
+            goldCards.add(2);
+        }
+        for (int i = 0; i < 4; i++) {
+            goldCards.add(3);
+        }
+        shuffleGoldCards();
+    }
+
+    public Map<Long, Integer> distributeGoldToDwarf(long winnerPlayerId) {
+        Map<Long, Integer> result = new HashMap<>();
+        List<Player> dwarfPlayers = getDwarfPlayers();
+        List<Integer> goldCardsToDistribute = new ArrayList<>();
+
+        for (int i = 0; i < dwarfPlayers.size(); i++) {
+            goldCardsToDistribute.add(goldCards.removeFirst());
+        }
+
+        goldCardsToDistribute.sort(Collections.reverseOrder());
+        int maxGold = goldCardsToDistribute.removeFirst();
+        Collections.shuffle(goldCardsToDistribute);
+
+        for (Player dwarfPlayer : dwarfPlayers) {
+            if (dwarfPlayer.getPlayerId() == winnerPlayerId) {
+                dwarfPlayer.addGold(maxGold);
+                result.put(winnerPlayerId, maxGold);
+            } else {
+                int goldToGive = goldCardsToDistribute.removeFirst();
+                dwarfPlayer.addGold(goldToGive);
+                result.put(dwarfPlayer.getPlayerId(), goldToGive);
+            }
+        }
+
+        return result;
+    }
+
+    public Map<Long, Integer> distributeGoldToSaboteur() {
+        Map<Long, Integer> result = new HashMap<>();
+        List<Player> saboteurPlayers = getSaboteurPlayers();
+
+        int saboteurCount = saboteurPlayers.size();
+        if (saboteurCount == 0) {
+            return result;
+        }
+
+        int goldPerSaboteur;
+        if (saboteurCount == 1) {
+            goldPerSaboteur = 4;
+        } else if (saboteurCount == 2 || saboteurCount == 3) {
+            goldPerSaboteur = 3;
+        } else {    // saboteurCount == 4
+            goldPerSaboteur = 2;
+        }
+
+        goldCards.sort(Collections.reverseOrder());
+        for (Player saboteurPlayer : saboteurPlayers) {
+            int givenGold = 0;
+            Iterator<Integer> iterator = goldCards.iterator();
+            while (iterator.hasNext()) {
+                int gold = iterator.next();
+                if (givenGold + gold <= goldPerSaboteur) {
+                    givenGold += gold;
+                    iterator.remove();
+                }
+            }
+
+            saboteurPlayer.addGold(givenGold);
+            result.put(saboteurPlayer.getPlayerId(), givenGold);
+        }
+
+        shuffleGoldCards();
+
+        return result;
+    }
+
+    private List<Player> getDwarfPlayers() {
+        return players.stream()
+                .filter(player -> player.getPlayerRole() == PlayerRole.DWARF)
+                .toList();
+    }
+
+    private List<Player> getSaboteurPlayers() {
+        return players.stream()
+                .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
+                .toList();
     }
 
 

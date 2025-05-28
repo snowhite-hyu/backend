@@ -27,7 +27,7 @@ public record GameResponse(
                 game.getRound(),
                 game.getGameState(),
                 game.getField(),
-                game.getDeck().size(),
+                game.getDeckSize(),
                 game.getCurrentTurnPlayerId(),
                 game.getTurnTime()
         );
