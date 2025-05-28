@@ -97,8 +97,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.joinPlayer(gameId, playerId)
                 .flatMap(playersLeft -> {
-                    PlayerJoinedResponse payload = PlayerJoinedResponse.of(playersLeft);
-                    return broadcastMessageToGame(gameId, "Game-Joined", payload);
+                    if (playersLeft > 0) {
+                        PlayerJoinedResponse result = PlayerJoinedResponse.of(playersLeft);
+                        return broadcastMessageToGame(gameId, "Game-Joined", result);
+                    }
+                        return gameService.processNextRoundOrFinishGame(gameId)
+                                .flatMap(result -> broadcastMessageToGame(gameId, "Round-Finished", result));
                 });
     }
 
