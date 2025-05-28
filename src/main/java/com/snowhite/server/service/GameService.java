@@ -26,28 +26,27 @@ public class GameService {
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .map(game -> {
                     int remain = game.joinPlayerAndReturnRemain(playerId);
-                    reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
+                    setGameToRedis(gameId, game);
                     return remain;
                 });
     }
 
     // 해당 game에 모든 player가 join했는지 확인
     public Mono<Boolean> verifyAllJoined(Long gameId) {
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .map(game -> game.getJoinedPlayerIds().size() == game.getPlayers().size());
     }
 
     // 새로운 round 시작 또는 게임 종료
     public Mono<Game> processNextRoundOrFinishGame(Long gameId) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .flatMap(game -> {
                     game.startNextRoundAndReturnFinished();
-                    return reactiveRedisTemplateForGame.opsForValue()
-                            .set(GAME_PREFIX + gameId, game)
+                    return setGameToRedis(gameId, game)
                             .thenReturn(game);
                 });
     }
@@ -62,6 +61,10 @@ public class GameService {
 
     public Mono<Game> getGameByGameId(Long gameId) {
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId);
+    }
+
+    public Mono<Boolean> setGameToRedis(Long gameId, Game game) {
+        return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
     }
 
     public Mono<Player> findPlayerByGameIdAndPlayerId(Long gameId, Long playerId) {

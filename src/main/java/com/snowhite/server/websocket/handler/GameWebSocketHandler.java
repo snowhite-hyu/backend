@@ -34,7 +34,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
 
     // 세션 저장 후 처리
@@ -130,7 +129,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return gameService.getGameByGameId(gameId)
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
                 .flatMap(player -> {
                     Long playerId = player.getPlayerId();
