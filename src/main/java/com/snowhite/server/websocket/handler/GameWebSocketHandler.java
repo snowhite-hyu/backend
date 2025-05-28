@@ -149,7 +149,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     ActionCardUsedResponse unicastResponse = response.getUnicast();
                     ActionCardUsedResponse broadcastResponse = response.getBroadcast();
                     Mono<Void> uni = sendMessage(session, "[Unicast]: Action-Card-Use", unicastResponse);
-                    Mono<Void> broad = sendMessage(session, "[Broadcast]: Action-Card-Use", broadcastResponse);
+                    Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
                     return Mono.when(uni, broad);
                 });
     }
