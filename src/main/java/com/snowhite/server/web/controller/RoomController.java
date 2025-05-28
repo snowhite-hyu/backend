@@ -15,14 +15,14 @@ public class RoomController {
 
     private final RoomService roomService;
 
-    @PostMapping("/{roomId}/start")
-    public Mono<ApiResponse<StartGameResponse>> startGame(@PathVariable Long roomId) {
-
-        Mono<StartGameResponse> startGameResponse = roomService.startGameByRoomId(roomId);
-
-        Mono<ApiResponse<StartGameResponse>> result = startGameResponse.map(ApiResponse::onSuccess);
-        return result;
-    }
+//    @PostMapping("/{roomId}/start")
+//    public Mono<ApiResponse<StartGameResponse>> startGame(@PathVariable Long roomId) {
+//
+//        Mono<StartGameResponse> startGameResponse = roomService.startGameByRoomId(roomId);
+//
+//        Mono<ApiResponse<StartGameResponse>> result = startGameResponse.map(ApiResponse::onSuccess);
+//        return result;
+//    }
 
     @GetMapping()
     public Mono<ApiResponse<GetRoomResponse>> getRooms() {

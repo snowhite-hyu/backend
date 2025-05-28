@@ -3,7 +3,6 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
@@ -43,15 +42,14 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return reactiveRedisTemplateForSession.opsForValue().set(userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
-                .then(
-                        session.receive()
-                                .doFinally(signalType -> {
-                                    sessionMap.remove(session.getId());
-                                    reactiveRedisTemplateForSession.delete(userId).subscribe();
-                                })
-                                .map(WebSocketMessage::getPayloadAsText)
-                                .flatMap(message -> handleMessage(session, message))
-                                .then()
+                .then(session.receive()
+                        .doFinally(signalType -> {
+                            sessionMap.remove(session.getId());
+                            reactiveRedisTemplateForSession.delete(userId).subscribe();
+                        })
+                        .map(WebSocketMessage::getPayloadAsText)
+                        .flatMap(message -> handleMessage(session, message))
+                        .then()
                 );
     }
 

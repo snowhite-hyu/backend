@@ -276,6 +276,7 @@ public class Game {
         shuffleGoldCards();
     }
 
+    // winner는 가장 큰 금덩이 카드를, 나머지는 무작위로 분배
     public Map<Long, Integer> distributeGoldToDwarf(long winnerPlayerId) {
         Map<Long, Integer> result = new HashMap<>();
         List<Player> dwarfPlayers = getDwarfPlayers();
@@ -303,6 +304,7 @@ public class Game {
         return result;
     }
 
+    // 큰 금덩이 카드부터 사용하면서 정해진 수만큼 분배
     public Map<Long, Integer> distributeGoldToSaboteur() {
         Map<Long, Integer> result = new HashMap<>();
         List<Player> saboteurPlayers = getSaboteurPlayers();

@@ -25,9 +25,11 @@ public class RoomService {
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRoom;
 
+    private final GameService gameService;
+
     public Mono<StartGameResponse> startGameByRoomId(Long roomId) {
 
-        Mono<Room> roomForStart = reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
+        Mono<Room> roomForStart = getRoomByRoomId(roomId);
 
         return roomForStart
                 .flatMap(room -> {
@@ -36,8 +38,7 @@ public class RoomService {
                             .toList();
                     int turnTime = room.getTurnTime();
                     Game newGame = new Game(roomId, players, turnTime);
-
-                    return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + roomId, newGame)
+                    return gameService.setGameToRedis(roomId, newGame)
                             .thenReturn(StartGameResponse.of(roomId));
                 });
     }
@@ -59,6 +60,10 @@ public class RoomService {
         ScanOptions options =
                 ScanOptions.scanOptions().match("room:*").count(1000).build();
         return reactiveRedisTemplateForRoom.scan(options);
+    }
+
+    public Mono<Room> getRoomByRoomId(Long roomId) {
+        return reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
     }
 
 }
