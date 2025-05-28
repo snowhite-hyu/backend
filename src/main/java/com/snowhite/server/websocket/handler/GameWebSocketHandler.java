@@ -3,7 +3,6 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
@@ -11,7 +10,6 @@ import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
-import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -27,9 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GameWebSocketHandler implements WebSocketHandler {
 
-    private static final String GAME_PREFIX = "game:";
-
-    private final CardRepository cardRepository;
     private final GameService gameService;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;

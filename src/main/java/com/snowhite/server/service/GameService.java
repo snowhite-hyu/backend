@@ -52,12 +52,8 @@ public class GameService {
                     boolean isFinished = game.startNextRoundAndReturnFinished();
                     if (isFinished) {
                         return setGameToRedis(gameId, game)
-                                .thenReturn(NextRoundPlayersResponse.of(
-                                        game.getPlayers()
-                                                .stream()
-                                                .map(SecretPlayerResponse::from)
-                                                .toList()
-                                ));
+                                .then(getAllSecretPlayerInfo(gameId))
+                                .map(NextRoundPlayersResponse::of);
                     } else {
                         return setGameToRedis(gameId, game)
                                 .thenReturn(NextRoundGameResponse.of(GameResponse.from(game)));
