@@ -64,24 +64,24 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
             switch (type) {
                 case "join-game": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    long gameId = payload.get("gameId").asLong();
+                    long playerId = payload.get("playerId").asLong();
                     return handleJoinGame(session, gameId, playerId);
                 }
 
                 case "start-round": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long gameId = payload.get("gameId").asLong();
                     return handleNextRound(session, gameId);
                 }
 
                 case "get-game-state": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long gameId = payload.get("gameId").asLong();
                     return handleGetGameState(session, gameId);
                 }
 
                 case "get-player-info": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    long gameId = payload.get("gameId").asLong();
+                    long playerId = payload.get("playerId").asLong();
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
 
