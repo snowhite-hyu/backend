@@ -3,7 +3,11 @@ package com.snowhite.server.service;
 import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.websocket.dto.response.GameResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -41,13 +45,23 @@ public class GameService {
     }
 
     // 새로운 round 시작 또는 게임 종료
-    public Mono<Game> processNextRoundOrFinishGame(Long gameId) {
+    public Mono<NextRoundResponse> processNextRoundOrFinishGame(Long gameId) {
 
         return getGameByGameId(gameId)
                 .flatMap(game -> {
-                    game.startNextRoundAndReturnFinished();
-                    return setGameToRedis(gameId, game)
-                            .thenReturn(game);
+                    boolean isFinished = game.startNextRoundAndReturnFinished();
+                    if (isFinished) {
+                        return setGameToRedis(gameId, game)
+                                .thenReturn(NextRoundPlayersResponse.of(
+                                        game.getPlayers()
+                                                .stream()
+                                                .map(SecretPlayerResponse::from)
+                                                .toList()
+                                ));
+                    } else {
+                        return setGameToRedis(gameId, game)
+                                .thenReturn(NextRoundGameResponse.of(GameResponse.from(game)));
+                    }
                 });
     }
 

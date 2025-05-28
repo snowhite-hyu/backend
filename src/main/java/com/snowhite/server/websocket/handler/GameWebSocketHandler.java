@@ -10,6 +10,8 @@ import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -110,7 +112,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleNextRound(WebSocketSession session, Long gameId) {
 
         return gameService.processNextRoundOrFinishGame(gameId)
-                .flatMap(game -> broadcastMessageToGame(gameId, "Round-Started", game));
+                .flatMap(result -> {
+                    if (result instanceof NextRoundGameResponse) {
+                        return broadcastMessageToGame(gameId, "Round-Started", result);
+                    } else {    // result instanceof NextRoundPlayersResponse
+                        return broadcastMessageToGame(gameId, "Round-Finished", result);
+                    }
+                });
 
     }
 
