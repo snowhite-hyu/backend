@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
+import com.snowhite.server.websocket.dto.response.GameResponse;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
+import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
@@ -122,13 +124,19 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleGetGameState(WebSocketSession session, Long gameId) {
 
         return gameService.getGameByGameId(gameId)
-                .flatMap(game -> sendMessage(session, "Game-State", game));
+                .flatMap(game -> {
+                    GameResponse result = GameResponse.from(game);
+                    return sendMessage(session, "Game-State", result);
+                });
     }
 
     public Mono<Void> handleGetPlayerInfo(WebSocketSession session, Long gameId, Long playerId) {
 
         return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
-                .flatMap(player -> sendMessage(session, "Player-Info", player));
+                .flatMap(player -> {
+                    SecretPlayerResponse result = SecretPlayerResponse.from(player);
+                    return sendMessage(session, "Player-Info", result);
+                });
     }
 
     // 게임 전체에 broadcast
