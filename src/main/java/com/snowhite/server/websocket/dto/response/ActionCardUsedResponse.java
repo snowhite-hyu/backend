@@ -9,11 +9,6 @@ public record ActionCardUsedResponse(
         Long gameId,
         String message,
         Integer actionCardId,
-        // 카드 사용 불가 응답
-        Long errorUsePlayerId,
-        Long errorTargetPlayerId,
-        Integer errorLocationX,
-        Integer errorLocationY,
         // 유니캐스트 응답
         Long usePlayerId,
         List<Integer> usePlayerCards,
@@ -46,10 +41,6 @@ public record ActionCardUsedResponse(
                 private Long gameId;
                 private String message;
                 private Integer actionCardId;
-                private Long errorUsePlayerId;
-                private Long errorTargetPlayerId;
-                private Integer errorLocationX;
-                private Integer errorLocationY;
                 private Long usePlayerId;
                 private List<Integer> usePlayerCards;
                 private Integer destCardId;
@@ -69,26 +60,6 @@ public record ActionCardUsedResponse(
 
                 public Builder actionCardId(Integer actionCardId) {
                         this.actionCardId = actionCardId;
-                        return this;
-                }
-
-                public Builder errorUsePlayerId(Long errorUsePlayerId) {
-                        this.errorUsePlayerId = errorUsePlayerId;
-                        return this;
-                }
-
-                public Builder errorTargetPlayerId(Long errorTargetPlayerId) {
-                        this.errorTargetPlayerId = errorTargetPlayerId;
-                        return this;
-                }
-
-                public Builder errorLocationX(Integer errorLocationX) {
-                        this.errorLocationX = errorLocationX;
-                        return this;
-                }
-
-                public Builder errorLocationY(Integer errorLocationY) {
-                        this.errorLocationY = errorLocationY;
                         return this;
                 }
 
@@ -127,10 +98,6 @@ public record ActionCardUsedResponse(
                                 gameId,
                                 message,
                                 actionCardId,
-                                errorUsePlayerId,
-                                errorTargetPlayerId,
-                                errorLocationX,
-                                errorLocationY,
                                 usePlayerId,
                                 usePlayerCards,
                                 destCardId,

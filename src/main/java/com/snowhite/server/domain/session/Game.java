@@ -47,7 +47,7 @@ public class Game {
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
                 field[i][j][0] = -1;    // -1: 카드 x
-                field[i][j][1] = 0;
+                field[i][j][1] = 0; // isflipped
             }
         }
     }
