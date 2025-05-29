@@ -130,7 +130,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                         return handleQuitRoom(session, userId, roomId);
                     }
 
-                    case "game-start":
+                    case "start-game":
                     {
                         long roomId = Long.parseLong(node.get("roomId").asText());
                         return handleStartGame(session, roomId);
