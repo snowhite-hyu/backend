@@ -1,6 +1,7 @@
 package com.snowhite.server.service;
 
 import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.payload.exception.GeneralException;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.web.dto.web.request.LoginRequestDto;
@@ -68,7 +69,7 @@ public class UserService {
 
     public Mono<Boolean> register(RegisterDto registerDto){
         if (!checkEmail(registerDto.getEmail())) {
-            return Mono.just(false);
+            throw new GeneralException(ErrorStatus._BAD_REQUEST);
         }
         User user = new User();
         user.setEmail(registerDto.getEmail());
