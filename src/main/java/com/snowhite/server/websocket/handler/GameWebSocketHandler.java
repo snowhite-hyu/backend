@@ -137,7 +137,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     public Mono<Void> handleDropCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId) {
         return gameService.dropCard(gameId, playerId, cardId)
-                .flatMap(game -> sendMessage(session, "Card-Dropped", game));
+                .flatMap(player -> sendMessage(session, "Card-Dropped", player));
     }
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {

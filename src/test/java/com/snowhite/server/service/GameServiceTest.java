@@ -55,14 +55,11 @@ public class GameServiceTest {
         when(valueOperations.set(eq(gameKey), any(Game.class))).thenReturn(Mono.just(true));
 
         // when
-        Mono<Game> result = gameService.dropCard(gameId, playerId, cardId);
+        Mono<Player> result = gameService.dropCard(gameId, playerId, cardId);
 
         // then
         StepVerifier.create(result)
-                .expectNextMatches(updatedGame -> {
-                    Player updatedPlayer = updatedGame.findPlayer(playerId).orElseThrow();
-                    return !updatedPlayer.getCards().contains(cardId);
-                })
+                .expectNextMatches(updatedPlayer -> !updatedPlayer.getCards().contains(cardId))
                 .verifyComplete();
     }
 
@@ -77,7 +74,7 @@ public class GameServiceTest {
 
         when(valueOperations.get(eq(gameKey))).thenReturn(Mono.just(game));
 
-        Mono<Game> result = gameService.dropCard(gameId, playerId, cardId);
+        Mono<Player> result = gameService.dropCard(gameId, playerId, cardId);
 
         StepVerifier.create(result)
                 .expectErrorMatches(e -> e instanceof IllegalArgumentException &&
@@ -98,7 +95,7 @@ public class GameServiceTest {
 
         when(valueOperations.get(eq(gameKey))).thenReturn(Mono.just(game));
 
-        Mono<Game> result = gameService.dropCard(gameId, playerId, cardId);
+        Mono<Player> result = gameService.dropCard(gameId, playerId, cardId);
 
         StepVerifier.create(result)
                 .expectErrorMatches(e -> e instanceof IllegalArgumentException &&
@@ -115,7 +112,7 @@ public class GameServiceTest {
 
         when(valueOperations.get(eq(gameKey))).thenReturn(Mono.empty());
 
-        Mono<Game> result = gameService.dropCard(gameId, playerId, cardId);
+        Mono<Player> result = gameService.dropCard(gameId, playerId, cardId);
 
         StepVerifier.create(result)
                 .expectErrorMatches(e -> e instanceof IllegalArgumentException &&

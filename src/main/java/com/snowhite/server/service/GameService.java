@@ -26,7 +26,7 @@ public class GameService {
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
 
     // 카드 버리기
-    public Mono<Game> dropCard(Long gameId, Long playerId, int cardId) {
+    public Mono<Player> dropCard(Long gameId, Long playerId, int cardId) {
         String gameKey = GAME_PREFIX + gameId;
         return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
@@ -36,12 +36,11 @@ public class GameService {
                         return Mono.error(new IllegalArgumentException("플레이어가 없음"));
                     }
                     Player player = optionalPlayer.get();
-                    List<Integer> cards = player.getCards();
-                    if (!cards.contains(cardId)) {
+                    if (!player.dropCard(cardId)) {
                         return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
                     }
-                    cards.remove((Integer) cardId);
-                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(game);
+                    game.nextTurn();
+                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
                 });
     }
 
