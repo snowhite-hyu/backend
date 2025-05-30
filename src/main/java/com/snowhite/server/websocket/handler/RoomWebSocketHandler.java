@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import lombok.NonNull;
@@ -20,7 +21,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,39 +60,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         this.objectMapper = objectMapper;
     }
 
-    private String extractTokenFromUri(String uri) {
-        try {
-            URI parsedUri = new URI(uri);
-            String query = parsedUri.getQuery();
-            if (query != null) {
-                for (String param : query.split("&")) {
-                    String[] pair = param.split("=");
-                    if (pair.length == 2 && pair[0].equals("token")) {
-                        return pair[1];
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    private Mono<Void> broadcastToRoom(Room room, String message) {
-        List<Mono<Void>> broadcasts = room.getUsers().stream()
-                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
-                        .flatMap(sessionId -> {
-                            WebSocketSession userSession = sessionMap.get(sessionId);
-                            if (userSession != null && userSession.isOpen()) {
-                                return userSession.send(Mono.just(userSession.textMessage(message)));
-                            } else {
-                                return Mono.empty();
-                            }
-                        }))
-                .collect(Collectors.toList());
-
-        return Flux.concat(broadcasts).then();
-    }
-
     @Override
     @NonNull
     public Mono<Void> handle(WebSocketSession session) {
@@ -101,17 +68,17 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         String token;
 
         try {
-            token = extractTokenFromUri(uri);
+            token = jwtProvider.extractTokenFromURI(uri);
         } catch (Exception e) {
-            return session.send(Mono.just(session.textMessage("Invalid URI format"))).then();
+            return sendMessage(session, "error", "Invalid URI format" + uri).then();
         }
 
         if (token == null) {
-            return session.send(Mono.just(session.textMessage("Missing token"))).then();
+            return sendMessage(session, "error", "Missing token").then();
         }
 
         if (!jwtProvider.isTokenValid(token)) {
-            return session.send(Mono.just(session.textMessage("Invalid token"))).then();
+            return sendMessage(session, "error", "Invalid token").then();
         }
 
         long userId = jwtProvider.extractUserIdFromToken(token);
@@ -130,8 +97,9 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private Function<String, Publisher<? extends Void>> processMessage(WebSocketSession session, String token) {
         return payload -> {
             try {
-                JsonNode node = objectMapper.readTree(payload);
-                String action = node.get("action").asText().toLowerCase();
+                JsonNode root = objectMapper.readTree(payload);
+                String action = root.get("type").asText().toLowerCase();
+                JsonNode node = root.get("payload");
 
                 switch (action) {
                     case "create":
@@ -150,16 +118,21 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                         return handleJoinRoom(session, userId, roomId);
                     }
 
+                    case "quit":
+                    {
+                        long userId = jwtProvider.extractUserIdFromToken(token);
+                        Long roomId = Long.parseLong(node.get("roomId").asText());
+                        return handleQuitRoom(session, userId, roomId);
+                    }
+
                     default:
                     {
-                        return session.send(Mono.just(
-                                session.textMessage("Unsupported action: " + action)));
+                        return sendMessage(session, "error", "Unsupported action: " + action);
                     }
                 }
 
             } catch (Exception e) {
-                return session.send(Mono.just(
-                        session.textMessage("Invalid frame: " + e.getMessage())));
+                return sendMessage(session, "error", "Invalid websocket frame: " + e.getMessage());
             }
         };
     }
@@ -170,8 +143,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return session.send(Mono.just(
-                                session.textMessage("User not found")));
+                        return sendMessage(session, "error", "User not found");
                     }
 
                     User user = optionalUser.get();
@@ -184,19 +156,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     Mono<Boolean> saveRoom = redisTemplateForRooms.
                             opsForValue().set(ROOM_PREFIX + String.valueOf(roomId), room);
 
-                    try {
-                        return Mono.when(saveRoom)
-                                .then(session.send(Mono.just(
-                                        session.textMessage(
-                                                objectMapper.writeValueAsString(room)
-                                        )
-                                )));
-                    } catch (JsonProcessingException e) {
-                        return session.send(Mono.just(
-                                session.textMessage("Error creating room: " + e.getMessage())
-                                )
-                        );
-                    }
+                    return Mono.when(saveRoom)
+                            .then(sendMessage(session, "created-room", room));
                 });
     }
 
@@ -205,8 +166,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return session.send(Mono.just(
-                                session.textMessage("User not found")));
+                        return sendMessage(session, "error", "User not found");
                     }
 
                     User user = optionalUser.get();
@@ -214,36 +174,118 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
                             .flatMap(room -> {
                                 if (room == null) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("Room not found: " + roomId)));
+                                    return sendMessage(session, "error", "Room not found");
                                 }
 
                                 List<User> users = room.getUsers();
                                 if (users.stream().anyMatch(u -> u.getId() == userId)) {
-                                    return session.send(Mono.just(
-                                            session.textMessage("User already in room")));
+                                    return sendMessage(session, "error", "User already in room");
                                 }
 
                                 users.add(user);
                                 room.setUsers(users);
 
-                                try {
-                                    return redisTemplateForRooms.opsForValue()
-                                            .set(ROOM_PREFIX + String.valueOf(roomId), room)
-                                            .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
-                                            .then(broadcastToRoom(room, user.getUsername() + " joined the room."))
-                                            .and(session.send(Mono.just(
-                                                    session.textMessage(
-                                                            objectMapper.writeValueAsString(room)
-                                                    ))));
-                                } catch (JsonProcessingException e) {
-                                    return session.send(Mono.just(
-                                                    session.textMessage("Error join room: " + e.getMessage())
-                                            )
-                                    );
-                                }
+                                return redisTemplateForRooms.opsForValue()
+                                        .set(ROOM_PREFIX + String.valueOf(roomId), room)
+                                        .then(redisTemplateForSessionIds.opsForValue().set(userId, session.getId()))
+                                        .then(broadcastToRoom(userId, room))
+                                        .and(sendMessage(session, "joined-room", room));
                             });
                 });
+    }
+
+    private Mono<Void> handleQuitRoom(WebSocketSession session, long userId, Long roomId) {
+        return Mono.fromCallable(() -> userRepository.findById(userId))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(optionalUser -> {
+                    if (optionalUser.isEmpty()) {
+                        return sendMessage(session, "error", "User not found");
+                    }
+
+                    User user = optionalUser.get();
+
+                    return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
+                            .flatMap(room -> {
+                                if (room == null) {
+                                    return sendMessage(session, "error", "Room not found");
+                                }
+
+                                List<User> users = room.getUsers();
+
+                                boolean isInRoom = (users.stream().anyMatch(u -> u.getId() == userId));
+
+                                if (!isInRoom) {
+                                    return sendMessage(session, "error", "User not in room");
+                                }
+
+                                boolean isMasterPlayer = userId == room.getMasterPlayer().getId();
+
+                                if (isMasterPlayer && users.size() > 1) {
+                                    return sendMessage(
+                                            session, "error", "Master player can not quit room while other users remain"
+                                    );
+                                }
+
+                                users.removeIf(u -> u.getId() == userId);
+
+                                room.setUsers(users);
+
+                                Mono<Boolean> roomQuit;
+
+                                if (isMasterPlayer && users.isEmpty()) {
+                                    roomQuit = redisTemplateForRooms
+                                            .delete(ROOM_PREFIX + String.valueOf(roomId)).thenReturn(Boolean.TRUE);
+                                } else {
+                                    roomQuit = redisTemplateForRooms.opsForValue()
+                                            .set(ROOM_PREFIX + String.valueOf(roomId), room);
+                                }
+
+                                return roomQuit
+                                        .then(redisTemplateForSessionIds.delete(userId))
+                                        .then(
+                                                isMasterPlayer && users.isEmpty() ?
+                                                        sendMessage(session, "quit-success", null) :
+                                                        broadcastToRoom(userId, room)
+                                                                .and(sendMessage(session, "quit-success", null))
+                                        ).then(Mono.defer(() ->
+                                                sessionMap.remove(session.getId())
+                                                        .close().then())
+                                        );
+                            });
+                });
+    }
+
+    private Mono<Void> broadcastToRoom(Long userId, Room room) {
+
+        List<Mono<Void>> broadcasts = room.getUsers().stream()
+                .filter(user -> user.getId() != userId)
+                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
+                        .flatMap(sessionId -> {
+                            WebSocketSession userSession = sessionMap.get(sessionId);
+                            if (userSession != null && userSession.isOpen()) {
+                                return sendMessage(userSession, "room-users", room.getUsers());
+                            } else {
+                                return Mono.empty();
+                            }
+                        }))
+                .collect(Collectors.toList());
+
+        return Flux.concat(broadcasts).then();
+    }
+
+    private Mono<Void> sendMessage(WebSocketSession session, String type, Object payload) {
+
+        try {
+            String json = objectMapper.writeValueAsString(
+                    WsMessage.onSuccess(type, payload)
+            );
+            return session.send(Mono.just(
+                    session.textMessage(json)
+            ));
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            return Mono.error(e);
+        }
     }
 
 }

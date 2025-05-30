@@ -9,6 +9,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
@@ -88,7 +89,7 @@ public class CardInitializer {
                 new Card(111, "broken - minecart", CardType.ACTION)
         );
 
-        cardRepository.deleteAll();
+        cardRepository.deleteAllInBatch();
         cardRepository.saveAll(cardList);
         cardRepository.findAll().forEach(card -> {
             reactiveRedisTemplateForCard.opsForValue()
