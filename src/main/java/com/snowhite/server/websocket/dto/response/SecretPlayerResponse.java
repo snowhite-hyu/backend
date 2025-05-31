@@ -19,7 +19,7 @@ public record SecretPlayerResponse(
                 player.getPlayerId(),
                 player.getPlayerName(),
                 player.getPlayerRole(),
-                player.getCards(),
+                player.getHand(),
                 player.getState(),
                 player.getGold()
         );

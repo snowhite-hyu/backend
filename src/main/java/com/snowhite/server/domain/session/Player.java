@@ -13,20 +13,20 @@ public class Player {
     private final long playerId;
     private final String playerName;
     private PlayerRole playerRole;
-    private final List<Integer> cards;
+    private final List<Integer> hand;
     private PlayerState state;
     private int gold;
 
     public Player(long playerId, String playerName) {
         this.playerId = playerId;
         this.playerName = playerName;
-        cards = new ArrayList<>();
+        hand = new ArrayList<>();
         state = PlayerState.NORMAL;
         gold = 0;
     }
 
-    public void addCard(int cardId) {
-        cards.add(cardId);
+    public void addCardToHand(int cardId) {
+        hand.add(cardId);
     }
 
     public void changePlayerRole(PlayerRole playerRole) {
@@ -34,7 +34,7 @@ public class Player {
     }
 
     public void clearHand() {
-        cards.clear();
+        hand.clear();
     }
 
     public void updatePlayerState(PlayerState state) {

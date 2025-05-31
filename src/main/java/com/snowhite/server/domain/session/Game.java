@@ -52,7 +52,7 @@ public class Game {
         return deck.size();
     }
 
-    public boolean startNextRoundAndReturnFinished() {
+    public boolean startNextRoundAndReturnGameFinished() {
         round++;
         if (round >= 1 && round <= 3) {
             gameState = GameState.IN_GAME;
@@ -67,7 +67,7 @@ public class Game {
         initializeNewField();
         initializeAllPlayerRole();
         initializeAllPlayerHands();
-        nextTurn();
+        nextTurnAndReturnRoundFinished();
         return false;
     }
 
@@ -98,7 +98,7 @@ public class Game {
     }
 
     private void giveCardToPlayer(int cardId, long playerId) {
-        findPlayer(playerId).get().addCard(cardId);
+        findPlayer(playerId).get().addCardToHand(cardId);
     }
 
     private void distributeRoles(int dwarf, int saboteur) {
@@ -127,7 +127,10 @@ public class Game {
         Collections.shuffle(goldCards);
     }
 
-    private long nextTurn() {
+    private boolean nextTurnAndReturnRoundFinished() {
+        if (checkDeckAndHandsEmpty()) {
+            return true;
+        }
         int currentTurnPlayerIndex = 0;
         if (currentTurnPlayerId != 0) {
             for (int i = 0; i < players.size(); i++) {
@@ -139,7 +142,15 @@ public class Game {
         }
         int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
         currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
-        return currentTurnPlayerId;
+        return false;
+    }
+
+    private boolean checkDeckAndHandsEmpty() {
+        boolean handsEmpty = players.stream()
+                .map(Player::getHand)
+                .allMatch(List::isEmpty);
+
+        return deck.isEmpty() && handsEmpty;
     }
 
     private int placeCard(int row, int column, int cardId, int isFlipped) {

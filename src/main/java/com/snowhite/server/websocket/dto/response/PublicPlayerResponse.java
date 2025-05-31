@@ -14,7 +14,7 @@ public record PublicPlayerResponse(
         return new PublicPlayerResponse(
                 player.getPlayerId(),
                 player.getPlayerName(),
-                player.getCards().size(),
+                player.getHand().size(),
                 player.getState(),
                 player.getGold()
         );

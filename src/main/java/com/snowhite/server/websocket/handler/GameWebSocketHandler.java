@@ -103,14 +103,14 @@ public class GameWebSocketHandler implements WebSocketHandler {
                         PlayerJoinedResponse result = PlayerJoinedResponse.of(playersLeft);
                         return broadcastMessageToGame(gameId, "Game-Joined", result);
                     }
-                    return gameService.processNextRoundOrFinishGame(gameId)
+                    return gameService.processNextRoundOrFinishRound(gameId)
                             .flatMap(result -> broadcastMessageToGame(gameId, "Round-Started", result));
                 });
     }
 
     public Mono<Void> handleNextRound(WebSocketSession session, Long gameId) {
 
-        return gameService.processNextRoundOrFinishGame(gameId)
+        return gameService.processNextRoundOrFinishRound(gameId)
                 .flatMap(result -> {
                     if (result instanceof NextRoundGameResponse) {
                         return broadcastMessageToGame(gameId, "Round-Started", result);

@@ -44,12 +44,12 @@ public class GameService {
                 .map(game -> game.getJoinedPlayerIds().size() == game.getPlayers().size());
     }
 
-    // 새로운 round 시작 또는 게임 종료
-    public Mono<NextRoundResponse> processNextRoundOrFinishGame(Long gameId) {
+    // 새로운 round 시작 또는 round 종료
+    public Mono<NextRoundResponse> processNextRoundOrFinishRound(Long gameId) {
 
         return getGameByGameId(gameId)
                 .flatMap(game -> {
-                    boolean isFinished = game.startNextRoundAndReturnFinished();
+                    boolean isFinished = game.startNextRoundAndReturnGameFinished();
                     if (isFinished) {
                         return setGameToRedis(gameId, game)
                                 .then(getAllSecretPlayerInfo(game))
