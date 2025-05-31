@@ -1,9 +1,11 @@
 package com.snowhite.server.websocket.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.snowhite.server.domain.enums.PlayerState;
 
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ActionCardUsedResponse(
         // 공통 필드
         Long gameId,
@@ -12,30 +14,34 @@ public record ActionCardUsedResponse(
         // 유니캐스트 응답
         Long usePlayerId,
         List<Integer> usePlayerCards,
-        Integer destCardId,
         // 브로드캐스트 응답
         Long targetPlayerId,
         List<PlayerState> targetPlayerState,
         Integer[][][] field
 ) {
-        public ActionCardUsedResponse getUnicast() {
-                return new Builder()
-                        .gameId(gameId)
-                        .message(message)
-                        .actionCardId(actionCardId)
-                        .usePlayerId(usePlayerId)
-                        .usePlayerCards(usePlayerCards)
-                        .build();
+        public static ActionCardUsedResponse ofUnicast(Long gameId, String message, Integer actionCardId, Long usePlayerId, List<Integer> usePlayerCards) {
+                return new ActionCardUsedResponse(
+                        gameId,
+                        message,
+                        actionCardId,
+                        usePlayerId,
+                        usePlayerCards,
+                        null,
+                        null,
+                        null
+                );
         }
-        public ActionCardUsedResponse getBroadcast() {
-                return new Builder()
-                        .gameId(gameId)
-                        .message(message)
-                        .actionCardId(actionCardId)
-                        .targetPlayerId(targetPlayerId)
-                        .targetPlayerState(targetPlayerState)
-                        .field(field)
-                        .build();
+        public static ActionCardUsedResponse ofBroadcast(Long gameId, String message, Integer actionCardId, Long targetPlayerId, List<PlayerState> targetPlayerState, Integer[][][] field) {
+                return new ActionCardUsedResponse(
+                        gameId,
+                        message,
+                        actionCardId,
+                        null,
+                        null,
+                        targetPlayerId,
+                        targetPlayerState,
+                        field
+                );
         }
         public static class Builder {
                 private Long gameId;
@@ -43,7 +49,6 @@ public record ActionCardUsedResponse(
                 private Integer actionCardId;
                 private Long usePlayerId;
                 private List<Integer> usePlayerCards;
-                private Integer destCardId;
                 private Long targetPlayerId;
                 private List<PlayerState> targetPlayerState;
                 private Integer[][][] field;
@@ -73,11 +78,6 @@ public record ActionCardUsedResponse(
                         return this;
                 }
 
-                public Builder destCardId(Integer destCardId) {
-                        this.destCardId = destCardId;
-                        return this;
-                }
-
                 public Builder targetPlayerId(Long targetPlayerId) {
                         this.targetPlayerId = targetPlayerId;
                         return this;
@@ -100,12 +100,10 @@ public record ActionCardUsedResponse(
                                 actionCardId,
                                 usePlayerId,
                                 usePlayerCards,
-                                destCardId,
                                 targetPlayerId,
                                 targetPlayerState,
                                 field
                         );
                 }
-
         }
 }

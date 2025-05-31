@@ -146,8 +146,21 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseActionCard(WebSocketSession session, Long gameId, ActionCardUseRequest request) {
         return gameService.useActionCard(gameId, request)
                 .flatMap(response -> {
-                    ActionCardUsedResponse unicastResponse = response.getUnicast();
-                    ActionCardUsedResponse broadcastResponse = response.getBroadcast();
+                    ActionCardUsedResponse unicastResponse = ActionCardUsedResponse.ofUnicast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.usePlayerId(),
+                            response.usePlayerCards()
+                    );
+                    ActionCardUsedResponse broadcastResponse = ActionCardUsedResponse.ofBroadcast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.targetPlayerId(),
+                            response.targetPlayerState(),
+                            response.field()
+                    );
                     Mono<Void> uni = sendMessage(session, "[Unicast]: Action-Card-Use", unicastResponse);
                     Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
                     return Mono.when(uni, broad);

@@ -218,11 +218,12 @@ public class GameService {
                     .flatMap(success -> {
                         if (success) {
                             return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .message("success")
                                     .gameId(gameId)
-                                    .usePlayerId(playerId)
-                                    .actionCardId(actionCard.getId())
-                                    .field(game.getField())
+                                            .message("success")
+                                            .actionCardId(actionCard.getId())
+                                            .usePlayerId(playerId)
+                                            .usePlayerCards(player.getCards())
+                                            .field(game.getField())
                                     .build()
                             );
                         } else {
@@ -252,11 +253,11 @@ public class GameService {
                     .flatMap(success -> {
                         if(success) {
                             return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .message("success")
                                     .gameId(gameId)
+                                    .message("success")
+                                    .actionCardId(actionCard.getId())
                                     .usePlayerId(playerId)
                                     .usePlayerCards(player.getCards())
-                                    .destCardId(game.getField()[locationX][locationY][0])
                                     .build()
                             );
                         } else {
@@ -274,7 +275,7 @@ public class GameService {
             List<PlayerState> brokenState = getBrokenStates(actionCard.getActionCardType());
 
             if (!repairState.isEmpty()) {
-                return useRepairCard(game, player, targetPlayer, actionCard, request, gameId, playerId, repairState);
+                return useRepairCard(game, player, targetPlayer, actionCard, request.targetRepairState(), gameId, playerId, repairState);
             } else if (!brokenState.isEmpty()) {
                 return useBrokenCard(game, player, targetPlayer, actionCard, gameId, playerId, brokenState);
             }
@@ -284,9 +285,8 @@ public class GameService {
         }
     }
 
-    private Mono<ActionCardUsedResponse> useRepairCard(Game game, Player player, Player targetPlayer, ActionCard actionCard, ActionCardUseRequest request, long gameId, long playerId, List<PlayerState> repairState) {
+    private Mono<ActionCardUsedResponse> useRepairCard(Game game, Player player, Player targetPlayer, ActionCard actionCard, PlayerState targetState, long gameId, long playerId, List<PlayerState> repairState) {
         try {
-            PlayerState targetState = request.targetRepairState();
             if (repairState.stream().noneMatch(targetPlayer::hasState) || !repairState.contains(targetState)) {
                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
             }
@@ -297,12 +297,14 @@ public class GameService {
                     .flatMap(success -> {
                         if(success) {
                             return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .message("success")
-                                    .gameId(gameId)
-                                    .usePlayerId(playerId)
-                                    .targetPlayerId(request.targetPlayerId())
-                                    .targetPlayerState(new ArrayList<>(targetPlayer.getState()))
-                                    .build()
+                                            .gameId(gameId)
+                                            .message("success")
+                                            .actionCardId(actionCard.getId())
+                                            .targetPlayerId(targetPlayer.getPlayerId())
+                                            .targetPlayerState(List.of(targetState))
+                                            .usePlayerId(playerId)
+                                            .usePlayerCards(player.getCards())
+                                            .build()
                             );
                         } else {
                             return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
@@ -325,11 +327,13 @@ public class GameService {
                     .flatMap(success -> {
                         if(success) {
                             return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .message("success")
                                     .gameId(gameId)
-                                    .usePlayerId(playerId)
+                                    .message("success")
+                                    .actionCardId(actionCard.getId())
                                     .targetPlayerId(targetPlayer.getPlayerId())
                                     .targetPlayerState(new ArrayList<>(targetPlayer.getState()))
+                                    .usePlayerId(playerId)
+                                    .usePlayerCards(player.getCards())
                                     .build()
                             );
                         } else {
