@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.Getter;
@@ -19,6 +20,7 @@ public class Game {
     private List<Integer> goldCards;
     private long currentTurnPlayerId;
     private int turnTime;   // second
+    private boolean hasPathFromStart;
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
@@ -31,6 +33,7 @@ public class Game {
         goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
+        hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
 
     public int joinPlayerAndReturnRemain(Long playerId) {
@@ -76,7 +79,7 @@ public class Game {
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
                 field[i][j][0] = -1;    // -1: 카드 x
-                field[i][j][1] = 0;
+                field[i][j][1] = 0; // isflipped
             }
         }
     }
@@ -172,7 +175,14 @@ public class Game {
         placeCard(1, 8, cardIds.get(0), 0);
         placeCard(3, 8, cardIds.get(1), 0);
         placeCard(5, 8, cardIds.get(2), 0);
+    }
 
+    public void removeCard(int row, int col) {
+        this.field[row][col] = null;
+    }
+
+    public void addCardsToDeck(List<Integer> cardIds) {
+        this.deck.addAll(cardIds);
     }
 
     // 모든 player의 역할 초기화
@@ -366,6 +376,14 @@ public class Game {
                 .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
                 .toList();
     }
+    // TODO: field 확장 기능 추가 후 구현
+    public boolean isPossibleLocationToGetCard(int row, int col) {
+        return true;
+    }
 
+    public boolean isFlipped(int row, int col) {
+        if (field[row][col][1] == 1) { return true; }
+        else { return false; }
+    }
 
 }

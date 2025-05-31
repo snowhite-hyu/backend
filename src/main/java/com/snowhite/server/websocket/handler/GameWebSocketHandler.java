@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.GameResponse;
+import com.snowhite.server.domain.enums.PlayerState;
+import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
+import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
@@ -84,6 +87,19 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     long playerId = payload.get("playerId").asLong();
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
+                case "use-action-card" : {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    ActionCardUseRequest request = new ActionCardUseRequest(
+                            payload.get("cardId").asInt(),
+                            payload.get("usePlayerId").asLong(),
+                            payload.has("targetPlayerId") ? payload.get("targetPlayerId").asLong() : null,
+                            payload.has("locationX") ? payload.get("locationX").asInt() : null,
+                            payload.has("locationY") ? payload.get("locationY").asInt() : null,
+                            payload.has("targetRepairState") ?
+                                    objectMapper.treeToValue(payload.get("targetRepairState"), PlayerState.class) : null
+                    );
+                    return handleUseActionCard(session, gameId, request);
+                }
 
                 default:
                     return sendMessage(session, "error", null);
@@ -136,6 +152,30 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMap(player -> {
                     SecretPlayerResponse result = SecretPlayerResponse.from(player);
                     return sendMessage(session, "Player-Info", result);
+                });
+    }
+
+    public Mono<Void> handleUseActionCard(WebSocketSession session, Long gameId, ActionCardUseRequest request) {
+        return gameService.useActionCard(gameId, request)
+                .flatMap(response -> {
+                    ActionCardUsedResponse unicastResponse = ActionCardUsedResponse.ofUnicast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.usePlayerId(),
+                            response.usePlayerCards()
+                    );
+                    ActionCardUsedResponse broadcastResponse = ActionCardUsedResponse.ofBroadcast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.targetPlayerId(),
+                            response.targetPlayerState(),
+                            response.field()
+                    );
+                    Mono<Void> uni = sendMessage(session, "[Unicast]: Action-Card-Use", unicastResponse);
+                    Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
+                    return Mono.when(uni, broad);
                 });
     }
 

@@ -4,6 +4,7 @@ import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.session.Player;
 
+import java.util.EnumSet;
 import java.util.List;
 
 public record SecretPlayerResponse(
@@ -11,7 +12,7 @@ public record SecretPlayerResponse(
         String playerName,
         PlayerRole playerRole,
         List<Integer> cards,
-        PlayerState state,
+        EnumSet<PlayerState> state,
         int gold
 ) {
     public static SecretPlayerResponse from(Player player) {
