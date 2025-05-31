@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.session.Game;
+import com.snowhite.server.domain.session.Player;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
@@ -92,7 +93,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 case "get-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
                     long playerId = Long.parseLong(payload.get("playerId").asText());
-                    return handleGetCard(gameId, playerId);
+                    return handleGetCard(session, gameId, playerId);
                 }
 
                 default:
@@ -134,8 +135,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
     }
 
     // 카드 가져오기
-    public Mono<Void> handleGetCard(Long gameId, Long playerId) {
-        return gameService.getCard(gameId, playerId).then();
+    public Mono<Void> handleGetCard(WebSocketSession session, Long gameId, Long playerId) {
+        return gameService.getCard(gameId, playerId)
+                .flatMap(player -> sendMessage(session, "Got-Card", player));
     }
 
     // 게임 전체에 broadcast
