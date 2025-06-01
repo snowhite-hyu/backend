@@ -6,10 +6,7 @@ import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.Getter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Getter
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -22,28 +19,60 @@ public class Game {
     private GameState gameState;
     private Integer[][][] field;
     private List<Integer> deck;
+    private List<Integer> goldCards;
     private long currentTurnPlayerId;
-    private int turnTime;   // second
-    private boolean hasPathFromStart;
+    private int turnTime;
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
         this.players = players;
-        this.joinedPlayerIds = new ArrayList<>();
-        this.round = 0;
-        this.gameState = GameState.WAITING;
+        joinedPlayerIds = new ArrayList<>();
+        round = 0;
+        gameState = GameState.WAITING;
         field = new Integer[7][9][2];
         deck = new ArrayList<>();
+        goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
-        hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
 
     public Game() {}
+    public int joinPlayerAndReturnRemain(Long playerId) {
+        joinedPlayerIds.add(playerId);
+        return players.size() - joinedPlayerIds.size();
+    }
 
-    public void clearFieldAndDeck() {
-        clearField();
-        clearDeck();
+    public Optional<Player> findPlayer(long playerId) {
+        return players.stream()
+                .filter(player -> player.getPlayerId() == playerId)
+                .findFirst();
+    }
+
+    public int getPlayerCount() {
+        return players.size();
+    }
+
+    public int getDeckSize() {
+        return deck.size();
+    }
+
+    public boolean startNextRoundAndReturnGameFinished() {
+        round++;
+        if (round >= 1 && round <= 3) {
+            gameState = GameState.IN_GAME;
+        }
+        if (round >= 4) {
+            gameState = GameState.FINISHED;
+            return true;
+        }
+
+        setNewDeck();
+        shufflePlayers();
+        initializeNewField();
+        initializeAllPlayerRole();
+        initializeAllPlayerHands();
+        nextTurnAndReturnRoundFinished();
+        return false;
     }
 
     public void clearField() {
@@ -56,19 +85,13 @@ public class Game {
         }
     }
 
-
     private void clearDeck() {
-        this.deck = new ArrayList<>();
+        deck.clear();
     }
 
-    public int incrementRoundAndChangeGameState() {
-        round++;
-        if (round == 1) {
-            this.gameState = GameState.IN_GAME;
-        } else if (round == 4) {
-            this.gameState = GameState.FINISHED;
-        }
-        return round;
+    private void drawAndGiveCardToPlayer(long playerId) {
+        int cardId = drawCard().get();
+        giveCardToPlayer(cardId, playerId);
     }
 
     public Optional<Integer> drawCard() {
@@ -78,16 +101,11 @@ public class Game {
         return Optional.of(deck.removeFirst());
     }
 
-    public void giveCardToPlayer(int cardId, long playerId) {
-        findPlayer(playerId).get().addCard(cardId);
+    private void giveCardToPlayer(int cardId, long playerId) {
+        findPlayer(playerId).get().addCardToHand(cardId);
     }
 
-    public void drawAndGiveCardToPlayer(long playerId) {
-        int cardId = drawCard().get();
-        giveCardToPlayer(cardId, playerId);
-    }
-
-    public void distributeRoles(int dwarf, int saboteur) {
+    private void distributeRoles(int dwarf, int saboteur) {
         List<PlayerRole> roles = new ArrayList<>();
         for (int i = 0; i < dwarf; i++) {
             roles.add(PlayerRole.DWARF);
@@ -101,8 +119,16 @@ public class Game {
         }
     }
 
-    public void shufflePlayers() {
+    private void shufflePlayers() {
         Collections.shuffle(players);
+    }
+
+    private void shuffleDeck() {
+        Collections.shuffle(deck);
+    }
+
+    private void shuffleGoldCards() {
+        Collections.shuffle(goldCards);
     }
 
     public long nextTurn() {
@@ -120,10 +146,51 @@ public class Game {
         return currentTurnPlayerId;
     }
 
-    public int placeCard(int row, int column, int cardId, int isFlipped) {
-        this.field[row][column][0] = cardId;
-        this.field[row][column][1] = isFlipped;
+    private boolean nextTurnAndReturnRoundFinished() {
+        if (checkDeckAndHandsEmpty()) {
+            return true;
+        }
+        int currentTurnPlayerIndex = 0;
+        if (currentTurnPlayerId != 0) {
+            for (int i = 0; i < players.size(); i++) {
+                if (players.get(i).getPlayerId() == currentTurnPlayerId) {
+                    currentTurnPlayerIndex = i;
+                    break;
+                }
+            }
+        }
+        int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
+        currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
+        return false;
+    }
+
+    private boolean checkDeckAndHandsEmpty() {
+        boolean handsEmpty = players.stream()
+                .map(Player::getHand)
+                .allMatch(List::isEmpty);
+
+        return deck.isEmpty() && handsEmpty;
+    }
+
+    private int placeCard(int row, int column, int cardId, int isFlipped) {
+        field[row][column][0] = cardId;
+        field[row][column][1] = isFlipped;
         return cardId;
+    }
+
+    // 출발지, 목적지 카드 세팅
+    private void initializeNewField() {
+        clearField();
+        List<Integer> cardIds = new ArrayList<>();
+        cardIds.add(61);
+        cardIds.add(62);
+        cardIds.add(63);
+        Collections.shuffle(cardIds);
+
+        placeCard(3, 0, 0, 0);
+        placeCard(1, 8, cardIds.get(0), 0);
+        placeCard(3, 8, cardIds.get(1), 0);
+        placeCard(5, 8, cardIds.get(2), 0);
     }
 
     public void removeCard(int row, int col) {
@@ -134,18 +201,76 @@ public class Game {
         this.deck.addAll(cardIds);
     }
 
-    public void joinPlayer(Long playerId) {
-        this.joinedPlayerIds.add(playerId);
+    // 모든 player의 역할 초기화
+    private void initializeAllPlayerRole() {
+        int playerCount = getPlayerCount();
+        int dwarf = 0;
+        int saboteur = 0;
+
+        switch (playerCount) {
+            case 3:
+                dwarf = 3;
+                saboteur = 1;
+                break;
+            case 4:
+                dwarf = 4;
+                saboteur = 1;
+                break;
+            case 5:
+                dwarf = 4;
+                saboteur = 2;
+                break;
+            case 6:
+                dwarf = 5;
+                saboteur = 2;
+                break;
+            case 7:
+                dwarf = 5;
+                saboteur = 3;
+                break;
+            case 8:
+                dwarf = 6;
+                saboteur = 3;
+                break;
+            case 9:
+                dwarf = 7;
+                saboteur = 3;
+                break;
+            case 10:
+                dwarf = 7;
+                saboteur = 4;
+                break;
+            default:
+                break;
+        }
+        distributeRoles(dwarf, saboteur);
     }
 
-    public Optional<Player> findPlayer(long playerId) {
-        return this.players.stream()
-                .filter(player -> player.getPlayerId() == playerId)
-                .findFirst();
-    }
+    // 모든 player의 손패 초기화
+    private void initializeAllPlayerHands() {
+        int playerCount = getPlayerCount();
+        int cardNumber = 0;
 
-    public int getPlayerCount() {
-        return this.players.size();
+        switch(playerCount) {
+            case 3, 4, 5:
+                cardNumber = 6;
+                break;
+            case 6, 7:
+                cardNumber = 5;
+                break;
+            case 8, 9, 10:
+                cardNumber = 4;
+                break;
+            default:
+                break;
+        }
+
+        for (Player player : players) {
+            player.clearHand();
+            for (int i = 0; i < cardNumber; i++) {
+                drawAndGiveCardToPlayer(player.getPlayerId());
+            }
+        }
     }
 
     public void setNewDeck() {
@@ -170,6 +295,102 @@ public class Game {
         for (int i = 0; i < 6; i++) {
             deck.add(108);  // 지도
         }
+
+        shuffleDeck();
+    }
+
+    private void setGoldCards() {
+        goldCards.clear();
+        for (int i = 0; i < 16; i++) {
+            goldCards.add(1);
+        }
+        for (int i = 0; i < 8; i++) {
+            goldCards.add(2);
+        }
+        for (int i = 0; i < 4; i++) {
+            goldCards.add(3);
+        }
+        shuffleGoldCards();
+    }
+
+    // winner는 가장 큰 금덩이 카드를, 나머지는 무작위로 분배
+    public Map<Long, Integer> distributeGoldToDwarf(long winnerPlayerId) {
+        Map<Long, Integer> result = new HashMap<>();
+        List<Player> dwarfPlayers = getDwarfPlayers();
+        List<Integer> goldCardsToDistribute = new ArrayList<>();
+
+        for (int i = 0; i < dwarfPlayers.size(); i++) {
+            goldCardsToDistribute.add(goldCards.removeFirst());
+        }
+
+        goldCardsToDistribute.sort(Collections.reverseOrder());
+        int maxGold = goldCardsToDistribute.removeFirst();
+        Collections.shuffle(goldCardsToDistribute);
+
+        for (Player dwarfPlayer : dwarfPlayers) {
+            if (dwarfPlayer.getPlayerId() == winnerPlayerId) {
+                dwarfPlayer.addGold(maxGold);
+                result.put(winnerPlayerId, maxGold);
+            } else {
+                int goldToGive = goldCardsToDistribute.removeFirst();
+                dwarfPlayer.addGold(goldToGive);
+                result.put(dwarfPlayer.getPlayerId(), goldToGive);
+            }
+        }
+
+        return result;
+    }
+
+    // 큰 금덩이 카드부터 사용하면서 정해진 수만큼 분배
+    public Map<Long, Integer> distributeGoldToSaboteur() {
+        Map<Long, Integer> result = new HashMap<>();
+        List<Player> saboteurPlayers = getSaboteurPlayers();
+
+        int saboteurCount = saboteurPlayers.size();
+        if (saboteurCount == 0) {
+            return result;
+        }
+
+        int goldPerSaboteur;
+        if (saboteurCount == 1) {
+            goldPerSaboteur = 4;
+        } else if (saboteurCount == 2 || saboteurCount == 3) {
+            goldPerSaboteur = 3;
+        } else {    // saboteurCount == 4
+            goldPerSaboteur = 2;
+        }
+
+        goldCards.sort(Collections.reverseOrder());
+        for (Player saboteurPlayer : saboteurPlayers) {
+            int givenGold = 0;
+            Iterator<Integer> iterator = goldCards.iterator();
+            while (iterator.hasNext()) {
+                int gold = iterator.next();
+                if (givenGold + gold <= goldPerSaboteur) {
+                    givenGold += gold;
+                    iterator.remove();
+                }
+            }
+
+            saboteurPlayer.addGold(givenGold);
+            result.put(saboteurPlayer.getPlayerId(), givenGold);
+        }
+
+        shuffleGoldCards();
+
+        return result;
+    }
+
+    private List<Player> getDwarfPlayers() {
+        return players.stream()
+                .filter(player -> player.getPlayerRole() == PlayerRole.DWARF)
+                .toList();
+    }
+
+    private List<Player> getSaboteurPlayers() {
+        return players.stream()
+                .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
+                .toList();
     }
     // TODO: field 확장 기능 추가 후 구현
     public boolean isPossibleLocationToGetCard(int row, int col) {

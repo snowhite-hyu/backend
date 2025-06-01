@@ -7,23 +7,26 @@ import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.websocket.dto.response.GameResponse;
+import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundResponse;
 import com.snowhite.server.payload.code.status.WsErrorStatus;
 import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.payload.exception.WebSocketException;
 import com.snowhite.server.websocket.dto.request.*;
 import com.snowhite.server.websocket.dto.response.*;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -35,46 +38,95 @@ public class GameService {
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
 
-    private static final Logger log = LoggerFactory.getLogger(GameService.class);
+    // 카드 가져오기
+    public Mono<Player> getCard(Long gameId, Long playerId) {
+        String gameKey = GAME_PREFIX + gameId;
+        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
+                .flatMap(game -> {
+                    Optional<Player> optionalPlayer = game.findPlayer(playerId);
+                    if (optionalPlayer.isEmpty()) {
+                        return Mono.error(new IllegalArgumentException("플레이어가 없음"));
+                    }
+                    Player player = optionalPlayer.get();
+                    Optional<Integer> optionalCard = game.drawCard();
+                    if (optionalCard.isEmpty()) {
+                        return Mono.error(new IllegalArgumentException("남아있는 카드가 없음"));
+                    }
+                    player.addCardToHand(optionalCard.get());
+                    game.nextTurn();
+                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
+                });
+    }
+
+    // 카드 버리기
+    public Mono<Player> dropCard(Long gameId, Long playerId, int cardId) {
+        String gameKey = GAME_PREFIX + gameId;
+        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
+                .flatMap(game -> {
+                    Optional<Player> optionalPlayer = game.findPlayer(playerId);
+                    if (optionalPlayer.isEmpty()) {
+                        return Mono.error(new IllegalArgumentException("플레이어가 없음"));
+                    }
+                    Player player = optionalPlayer.get();
+                    if (!player.dropCard(cardId)) {
+                        return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
+                    }
+                    game.nextTurn();
+                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
+                });
+    }
 
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .map(game -> {
-                    game.getJoinedPlayerIds().add(playerId);
-                    reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
-                    int remain = game.getPlayers().size() - game.getJoinedPlayerIds().size();
+                    int remain = game.joinPlayerAndReturnRemain(playerId);
+                    setGameToRedis(gameId, game);
                     return remain;
                 });
     }
 
     // 해당 game에 모든 player가 join했는지 확인
     public Mono<Boolean> verifyAllJoined(Long gameId) {
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .map(game -> game.getJoinedPlayerIds().size() == game.getPlayers().size());
     }
 
-    // 새로운 round 시작을 위한 모든 field 초기화
-    public Mono<Game> setupGameForNewRound(Long gameId) {
+    // 새로운 round 시작 또는 round 종료
+    public Mono<NextRoundResponse> processNextRoundOrFinishRound(Long gameId) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return getGameByGameId(gameId)
                 .flatMap(game -> {
-                    game.incrementRoundAndChangeGameState();
-                    game.setNewDeck();
-                    game.shufflePlayers();
-                    game.nextTurn();
-                    initializeNewField(game);
-                    initializePlayerRole(game);
-                    initializeAllPlayerHands(game);
-                    return reactiveRedisTemplateForGame.opsForValue()
-                            .set(GAME_PREFIX + gameId, game)
-                            .thenReturn(game);
+                    boolean isFinished = game.startNextRoundAndReturnGameFinished();
+                    if (isFinished) {
+                        return setGameToRedis(gameId, game)
+                                .then(getAllSecretPlayerInfo(game))
+                                .map(NextRoundPlayersResponse::of);
+                    } else {
+                        return setGameToRedis(gameId, game)
+                                .thenReturn(NextRoundGameResponse.of(GameResponse.from(game)));
+                    }
                 });
+    }
+
+    public Mono<List<SecretPlayerResponse>> getAllSecretPlayerInfo(Game game) {
+
+        return Mono.just(
+                game.getPlayers().stream()
+                        .map(SecretPlayerResponse::from)
+                        .toList()
+        );
     }
 
     public Mono<Game> getGameByGameId(Long gameId) {
         return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId);
+    }
+
+    public Mono<Boolean> setGameToRedis(Long gameId, Game game) {
+        return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
     }
 
     public Mono<Player> findPlayerByGameIdAndPlayerId(Long gameId, Long playerId) {
@@ -82,101 +134,12 @@ public class GameService {
                 .map(game -> game.findPlayer(playerId).get());
     }
 
-    // 출발지, 목적지 카드 세팅
-    public void initializeNewField(Game game) {
-        game.clearField();
-        List<Integer> cardIds = new ArrayList<>();
-        cardIds.add(61);
-        cardIds.add(62);
-        cardIds.add(63);
-        Collections.shuffle(cardIds);
-
-        game.placeCard(3, 0, 0, 0);
-        game.placeCard(1, 8, cardIds.get(0), 0);
-        game.placeCard(3, 8, cardIds.get(1), 0);
-        game.placeCard(5, 8, cardIds.get(2), 0);
-
-    }
-
-    // 모든 player의 손패 초기화
-    private void initializeAllPlayerHands(Game game) {
-        int playerCount = game.getPlayerCount();
-        int cardNumber = 0;
-
-        switch (playerCount) {
-            case 3, 4, 5:
-                cardNumber = 6;
-                break;
-            case 6, 7:
-                cardNumber = 5;
-                break;
-            case 8, 9, 10:
-                cardNumber = 4;
-                break;
-            default:
-                break;
-        }
-
-        List<Player> players = game.getPlayers();
-        for (Player player : players) {
-            player.clearHand();
-            for (int i = 0; i < cardNumber; i++) {
-                game.drawAndGiveCardToPlayer(player.getPlayerId());
-            }
-        }
-    }
-
-    // 모든 player의 역할 초기화
-    private void initializePlayerRole(Game game) {
-        int playerCount = game.getPlayerCount();
-        int dwarf = 0;
-        int saboteur = 0;
-
-        switch (playerCount) {
-            case 3:
-                dwarf = 3;
-                saboteur = 1;
-                break;
-            case 4:
-                dwarf = 4;
-                saboteur = 1;
-                break;
-            case 5:
-                dwarf = 4;
-                saboteur = 2;
-                break;
-            case 6:
-                dwarf = 5;
-                saboteur = 2;
-                break;
-            case 7:
-                dwarf = 5;
-                saboteur = 3;
-                break;
-            case 8:
-                dwarf = 6;
-                saboteur = 3;
-                break;
-            case 9:
-                dwarf = 7;
-                saboteur = 3;
-                break;
-            case 10:
-                dwarf = 7;
-                saboteur = 4;
-                break;
-            default:
-                break;
-        }
-        game.distributeRoles(dwarf, saboteur);
-    }
 
     // 게임에 필요한 카드 정보 가져오기
     private Flux<Card> getAllCardsFromRedis() {
         return reactiveRedisTemplateForCard
                 .scan(ScanOptions.scanOptions().match(CARD_PREFIX).build())
-                .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key))
-                .doOnError(e -> log.error("카드 조회 중 에러", e));
+                .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key));
     }
 
     private Player findPlayerByPlayerId(Game game, Long playerId) {
@@ -192,11 +155,9 @@ public class GameService {
                 .next();
     }
 
-    private Mono<Boolean> handlePathCard(PathCard pathCard) {
-        return Mono.fromCallable(() -> {
-            // TODO: 굴 카드 관련 로직
-            return true;
-        });
+    private Mono<Boolean> saveGameToRedis(Game game) {
+        return reactiveRedisTemplateForGame.opsForValue()
+                .set(GAME_PREFIX + game.getGameId(), game);
     }
 
     private List<PlayerState> getRepairStates(ActionCardType type) {
@@ -218,11 +179,6 @@ public class GameService {
             case BROKEN_MINECART -> List.of(PlayerState.BROKEN_MINECART);
             default -> List.of();
         };
-    }
-
-    private Mono<Boolean> saveGameToRedis(Game game) {
-        return reactiveRedisTemplateForGame.opsForValue()
-                .set(GAME_PREFIX + game.getGameId(), game);
     }
 
     public Mono<RockfallCardUsedResponse> useRockfallCard(RockfallCardUseRequest request) {
@@ -248,7 +204,7 @@ public class GameService {
                                 .flatMap(success -> {
                                     if (success) {
                                         RockfallCardUsedResponse response = new RockfallCardUsedResponse(
-                                                gameId, "success", player.getCards(), game.getField()
+                                                gameId, "success", player.getHand(), game.getField()
                                         );
                                         return Mono.just(response);
                                     } else {
@@ -287,7 +243,7 @@ public class GameService {
                                 .flatMap(success -> {
                                     if (success) {
                                         MapCardUsedResponse response = new MapCardUsedResponse(
-                                                gameId, "success", player.getCards(), game.getCardIdAt(row, column)
+                                                gameId, "success", player.getHand(), game.getCardIdAt(row, column)
                                         );
                                         return Mono.just(response);
                                     } else {
@@ -337,7 +293,7 @@ public class GameService {
                                                 .flatMap(success -> {
                                                     if (success) {
                                                         return Mono.just(new RepairCardUsedResponse(
-                                                                gameId, "success", player.getCards(), List.of(targetState)
+                                                                gameId, "success", player.getHand(), List.of(targetState)
                                                         ));
                                                     } else {
                                                         return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
@@ -383,7 +339,7 @@ public class GameService {
                                 return saveGameToRedis(game).flatMap(success -> {
                                     if (success) {
                                         BrokenCardUsedResponse response = new BrokenCardUsedResponse(
-                                                gameId, "success", player.getCards(), new ArrayList<>(targetPlayer.getState())
+                                                gameId, "success", player.getHand(), new ArrayList<>(targetPlayer.getState())
                                         );
                                         return Mono.just(response);
                                     } else {

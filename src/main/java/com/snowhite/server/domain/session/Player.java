@@ -10,38 +10,33 @@ import java.util.List;
 
 @Getter
 public class Player {
-    private long playerId;
-
-    private String playerName;
-
+    private final long playerId;
+    private final String playerName;
     private PlayerRole playerRole;
-
-    private List<Integer> cards;
-
+    private final List<Integer> hand;
     private EnumSet<PlayerState> state;
-
     private int gold;
 
     public Player(long playerId, String playerName) {
         this.playerId = playerId;
         this.playerName = playerName;
-        cards = new ArrayList<>();
+        hand = new ArrayList<>();
         state = EnumSet.of(PlayerState.NORMAL);
         gold = 0;
     }
 
-    public Player() {}
-
-    public void addCard(int cardId) {
-        cards.add(cardId);
+    public void addCardToHand(int cardId) {
+        hand.add(cardId);
     }
+
+    public boolean dropCard(int cardId) { return hand.remove((Integer) cardId); }
 
     public void changePlayerRole(PlayerRole playerRole) {
         this.playerRole = playerRole;
     }
 
     public void clearHand() {
-        cards.clear();
+        hand.clear();
     }
 
     public void addPlayerState(PlayerState state) {
@@ -62,7 +57,7 @@ public class Player {
     }
 
     public void removeCard(int cardId) {
-        this.cards.remove(cardId);
+        this.hand.remove(cardId);
     }
-    public boolean hasCard(Integer cardId) { return this.cards.contains(cardId); }
+    public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 }

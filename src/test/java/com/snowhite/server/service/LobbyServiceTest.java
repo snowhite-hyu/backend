@@ -3,7 +3,7 @@ package com.snowhite.server.service;
 import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.payload.ApiResponse;
-import com.snowhite.server.web.dto.web.response.GetRoomResponse;
+import com.snowhite.server.web.dto.response.GetRoomResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,15 +76,12 @@ class LobbyServiceTest {
     @Test
      void getRooms_returnsRoomList() {
 
-        webTestClient.get().uri("/api/rooms")
+        webTestClient.get().uri("/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(new ParameterizedTypeReference<ApiResponse<GetRoomResponse>>() {})
                 .consumeWith(response -> {
-
-                    System.out.println(response);
-
                     ApiResponse<GetRoomResponse> apiResponse = response.getResponseBody();
 
                     assertNotNull(apiResponse);
@@ -127,7 +124,7 @@ class LobbyServiceTest {
                 .flatMap(redisTemplateForRooms::delete)
                 .blockLast();
 
-        webTestClient.get().uri("/api/rooms")
+        webTestClient.get().uri("/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
