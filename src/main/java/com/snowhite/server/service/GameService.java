@@ -60,6 +60,25 @@ public class GameService {
                 });
     }
 
+    // 카드 버리기
+    public Mono<Player> dropCard(Long gameId, Long playerId, int cardId) {
+        String gameKey = GAME_PREFIX + gameId;
+        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
+                .flatMap(game -> {
+                    Optional<Player> optionalPlayer = game.findPlayer(playerId);
+                    if (optionalPlayer.isEmpty()) {
+                        return Mono.error(new IllegalArgumentException("플레이어가 없음"));
+                    }
+                    Player player = optionalPlayer.get();
+                    if (!player.dropCard(cardId)) {
+                        return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
+                    }
+                    game.nextTurn();
+                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
+                });
+    }
+
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
 

@@ -29,6 +29,8 @@ public class Player {
         hand.add(cardId);
     }
 
+    public boolean dropCard(int cardId) { return hand.remove((Integer) cardId); }
+
     public void changePlayerRole(PlayerRole playerRole) {
         this.playerRole = playerRole;
     }

@@ -19,22 +19,15 @@ import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.time.Duration;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.web.reactive.socket.WebSocketMessage;
-import reactor.core.scheduler.Schedulers;
 
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -142,7 +135,6 @@ class RoomWebSocketHandlerTest {
 
                                     Assertions.assertEquals(testUser.getId(), masterPlayer.get("id").asLong());
                                     Assertions.assertEquals(testUser.getUsername(), masterPlayer.get("username").asText());
-                                    Assertions.assertEquals(testUser.isLoggedIn(), masterPlayer.get("loggedIn").asBoolean());
 
                                     Assertions.assertTrue(users.isArray());
                                     Assertions.assertEquals(1, users.size());
@@ -299,7 +291,6 @@ class RoomWebSocketHandlerTest {
         joinUser.setUsername("joinUser");
         joinUser.setEmail("joinUser@example.com");
         joinUser.setPassword("password");
-        joinUser.setLoggedIn(true);
         userRepository.save(joinUser);
 
         String hostUri = "ws://localhost:" + port + "/ws/room?token=" + jwtToken;
