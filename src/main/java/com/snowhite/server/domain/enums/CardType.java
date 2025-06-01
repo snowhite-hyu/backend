@@ -3,6 +3,6 @@ package com.snowhite.server.domain.enums;
 public enum CardType {
     START,
     DESTINATION,
-    CAVE,
+    PATH,
     ACTION
 }

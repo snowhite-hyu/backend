@@ -7,9 +7,15 @@ import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
+import com.snowhite.server.websocket.dto.response.GameResponse;
+import com.snowhite.server.domain.enums.PlayerState;
+import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
+import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
+import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
+import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -48,15 +54,14 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return reactiveRedisTemplateForSession.opsForValue().set(userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
-                .then(
-                        session.receive()
-                                .doFinally(signalType -> {
-                                    sessionMap.remove(session.getId());
-                                    reactiveRedisTemplateForSession.delete(userId).subscribe();
-                                })
-                                .map(WebSocketMessage::getPayloadAsText)
-                                .flatMap(message -> handleMessage(session, message))
-                                .then()
+                .then(session.receive()
+                        .doFinally(signalType -> {
+                            sessionMap.remove(session.getId());
+                            reactiveRedisTemplateForSession.delete(userId).subscribe();
+                        })
+                        .map(WebSocketMessage::getPayloadAsText)
+                        .flatMap(message -> handleMessage(session, message))
+                        .then()
                 );
     }
 
@@ -69,25 +74,44 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
             switch (type) {
                 case "join-game": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    long gameId = payload.get("gameId").asLong();
+                    long playerId = payload.get("playerId").asLong();
                     return handleJoinGame(session, gameId, playerId);
                 }
 
                 case "start-round": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
-                    return handleStartRound(session, gameId);
+                    long gameId = payload.get("gameId").asLong();
+                    return handleNextRound(session, gameId);
                 }
 
                 case "get-game-state": {
-                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long gameId = payload.get("gameId").asLong();
                     return handleGetGameState(session, gameId);
                 }
 
                 case "get-player-info": {
+                    long gameId = payload.get("gameId").asLong();
+                    long playerId = payload.get("playerId").asLong();
+                    return handleGetPlayerInfo(session, gameId, playerId);
+                }
+                case "use-action-card" : {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    ActionCardUseRequest request = new ActionCardUseRequest(
+                            payload.get("cardId").asInt(),
+                            payload.get("usePlayerId").asLong(),
+                            payload.has("targetPlayerId") ? payload.get("targetPlayerId").asLong() : null,
+                            payload.has("locationX") ? payload.get("locationX").asInt() : null,
+                            payload.has("locationY") ? payload.get("locationY").asInt() : null,
+                            payload.has("targetRepairState") ?
+                                    objectMapper.treeToValue(payload.get("targetRepairState"), PlayerState.class) : null
+                    );
+                    return handleUseActionCard(session, gameId, request);
+                }
+
+                case "get-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
                     long playerId = Long.parseLong(payload.get("playerId").asText());
-                    return handleGetPlayerInfo(session, gameId, playerId);
+                    return handleGetCard(session, gameId, playerId);
                 }
 
                 case "drop-card": {
@@ -111,28 +135,74 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.joinPlayer(gameId, playerId)
                 .flatMap(playersLeft -> {
-                    PlayerJoinedResponse payload = PlayerJoinedResponse.of(playersLeft);
-                    return broadcastMessageToGame(gameId, "Game-Joined", payload);
+                    if (playersLeft > 0) {
+                        PlayerJoinedResponse result = PlayerJoinedResponse.of(playersLeft);
+                        return broadcastMessageToGame(gameId, "Game-Joined", result);
+                    }
+                    return gameService.processNextRoundOrFinishRound(gameId)
+                            .flatMap(result -> broadcastMessageToGame(gameId, "Round-Started", result));
                 });
     }
 
-    public Mono<Void> handleStartRound(WebSocketSession session, Long gameId) {
+    public Mono<Void> handleNextRound(WebSocketSession session, Long gameId) {
 
-        return gameService.setupGameForNewRound(gameId)
-                .flatMap(game -> broadcastMessageToGame(gameId, "Round-Started", game));
+        return gameService.processNextRoundOrFinishRound(gameId)
+                .flatMap(result -> {
+                    if (result instanceof NextRoundGameResponse) {
+                        return broadcastMessageToGame(gameId, "Round-Started", result);
+                    } else {    // result instanceof NextRoundPlayersResponse
+                        return broadcastMessageToGame(gameId, "Round-Finished", result);
+                    }
+                });
 
     }
 
     public Mono<Void> handleGetGameState(WebSocketSession session, Long gameId) {
 
         return gameService.getGameByGameId(gameId)
-                .flatMap(game -> sendMessage(session, "Game-State", game));
+                .flatMap(game -> {
+                    GameResponse result = GameResponse.from(game);
+                    return sendMessage(session, "Game-State", result);
+                });
     }
 
     public Mono<Void> handleGetPlayerInfo(WebSocketSession session, Long gameId, Long playerId) {
 
         return gameService.findPlayerByGameIdAndPlayerId(gameId, playerId)
-                .flatMap(player -> sendMessage(session, "Player-Info", player));
+                .flatMap(player -> {
+                    SecretPlayerResponse result = SecretPlayerResponse.from(player);
+                    return sendMessage(session, "Player-Info", result);
+                });
+    }
+
+    public Mono<Void> handleUseActionCard(WebSocketSession session, Long gameId, ActionCardUseRequest request) {
+        return gameService.useActionCard(gameId, request)
+                .flatMap(response -> {
+                    ActionCardUsedResponse unicastResponse = ActionCardUsedResponse.ofUnicast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.usePlayerId(),
+                            response.usePlayerCards()
+                    );
+                    ActionCardUsedResponse broadcastResponse = ActionCardUsedResponse.ofBroadcast(
+                            response.gameId(),
+                            response.message(),
+                            response.actionCardId(),
+                            response.targetPlayerId(),
+                            response.targetPlayerState(),
+                            response.field()
+                    );
+                    Mono<Void> uni = sendMessage(session, "[Unicast]: Action-Card-Use", unicastResponse);
+                    Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
+                    return Mono.when(uni, broad);
+                });
+    }
+
+    // 카드 가져오기
+    public Mono<Void> handleGetCard(WebSocketSession session, Long gameId, Long playerId) {
+        return gameService.getCard(gameId, playerId)
+                .flatMap(player -> sendMessage(session, "Got-Card", player));
     }
 
     public Mono<Void> handleDropCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId) {
@@ -142,7 +212,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
 
-        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+        return gameService.getGameByGameId(gameId)
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
                 .flatMap(player -> {
                     Long playerId = player.getPlayerId();

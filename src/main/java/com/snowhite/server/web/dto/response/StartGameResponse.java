@@ -1,4 +1,4 @@
-package com.snowhite.server.web.dto.web.response;
+package com.snowhite.server.web.dto.response;
 
 public record StartGameResponse(
         long gameId

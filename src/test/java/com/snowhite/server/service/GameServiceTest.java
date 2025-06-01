@@ -15,6 +15,8 @@ import reactor.test.StepVerifier;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
@@ -28,11 +30,61 @@ public class GameServiceTest {
 
     @BeforeEach
     void setUp() {
-        gameRedisTemplate = Mockito.mock(ReactiveRedisTemplate.class);
-        valueOperations = Mockito.mock(ReactiveValueOperations.class);
+        gameRedisTemplate = mock(ReactiveRedisTemplate.class);
+        valueOperations = mock(ReactiveValueOperations.class);
         when(gameRedisTemplate.opsForValue()).thenReturn(valueOperations);
 
         gameService = new GameService(gameRedisTemplate, null);
+    }
+
+    @Test
+    void getCard_successfully() {
+        Long gameId = 1L;
+        Long playerId = 10L;
+        String gameKey = "game:" + gameId;
+
+        Player player = new Player(playerId, "테스터");
+        List<Player> players = List.of(player);
+        Game game = new Game(gameId, players, 60);
+
+        when(valueOperations.get(eq(gameKey))).thenReturn(Mono.just(game));
+        when(valueOperations.set(eq(gameKey), any(Game.class))).thenReturn(Mono.just(true));
+
+        // 카드 얻기 전 플레이어의 카드 수
+        game.setNewDeck();
+        int cardSize = player.getHand().size();
+
+        // 카드 한장 가져오기
+        Player updatedPlayer = gameService.getCard(gameId, playerId).block();
+
+        // 카드 얻기 전 카드 수 + 1 된건지 확인
+        List<Integer> cards = updatedPlayer.getHand();
+        assertEquals(cardSize+1, cards.size());
+
+        // 가져온 카드가 더미카드에 없는지 확인
+        List<Integer> deck = game.getDeck();
+        assertFalse(deck.contains(cards.get(cardSize)));
+    }
+
+    @Test
+    void getCard_noCardLeft_shouldThrowError() {
+        Long gameId = 1L;
+        Long playerId = 10L;
+        String gameKey = "game:" + gameId;
+
+        Player player = new Player(playerId, "테스터");
+        List<Player> players = List.of(player);
+        Game game = new Game(gameId, players, 60);
+
+        when(valueOperations.get(eq(gameKey))).thenReturn(Mono.just(game));
+        when(valueOperations.set(eq(gameKey), any(Game.class))).thenReturn(Mono.just(true));
+
+        // 카드 가져오고 에러 났는지 확인
+        Mono<Player> result = gameService.getCard(gameId, playerId);
+        StepVerifier.create(result)
+                .expectErrorMatches(e -> e instanceof IllegalArgumentException &&
+                        e.getMessage().equals("남아있는 카드가 없음"))
+                .verify();
     }
 
     @Test
@@ -44,7 +96,7 @@ public class GameServiceTest {
         String gameKey = "game:" + gameId;
 
         Player player = new Player(playerId, "테스터");
-        player.getCards().add(cardId);
+        player.getHand().add(cardId);
 
         List<Player> players = new ArrayList<>();
         players.add(player);
@@ -59,7 +111,7 @@ public class GameServiceTest {
 
         // then
         StepVerifier.create(result)
-                .expectNextMatches(updatedPlayer -> !updatedPlayer.getCards().contains(cardId))
+                .expectNextMatches(updatedPlayer -> !updatedPlayer.getHand().contains(cardId))
                 .verifyComplete();
     }
 
