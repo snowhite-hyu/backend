@@ -8,6 +8,7 @@ import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
+import com.snowhite.server.service.RoomService;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
@@ -40,6 +41,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
+    private final RoomService roomService;
+
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
     private static final String ROOM_PREFIX = "room:";
@@ -51,13 +54,15 @@ public class RoomWebSocketHandler implements WebSocketHandler {
             ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds,
             UserRepository userRepository,
             JwtProvider jwtProvider,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            RoomService roomService
     ) {
         this.redisTemplateForRooms = redisTemplateForRooms;
         this.redisTemplateForSessionIds = redisTemplateForSessionIds;
         this.userRepository = userRepository;
         this.jwtProvider = jwtProvider;
         this.objectMapper = objectMapper;
+        this.roomService = roomService;
     }
 
     @Override
@@ -125,6 +130,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                         return handleQuitRoom(session, userId, roomId);
                     }
 
+                    case "start-game":
+                    {
+                        long roomId = Long.parseLong(node.get("roomId").asText());
+                        return handleStartGame(session, roomId);
+                    }
+
                     default:
                     {
                         return sendMessage(session, "error", "Unsupported action: " + action);
@@ -135,6 +146,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 return sendMessage(session, "error", "Invalid websocket frame: " + e.getMessage());
             }
         };
+    }
+
+    private Mono<Void> handleStartGame(WebSocketSession session, long roomId) {
+
+        return roomService.startGameByRoomId(roomId)
+                .flatMap(result -> broadcastMessageToRoom(roomId, "Game-Started", result));
     }
 
     private Mono<Void> handleCreateRoom(WebSocketSession session, long userId, int capacity, int turnTime) {
@@ -287,5 +304,21 @@ public class RoomWebSocketHandler implements WebSocketHandler {
             return Mono.error(e);
         }
     }
+
+    public Mono<Void> broadcastMessageToRoom(Long roomId, String type, Object payload) {
+
+        return roomService.getRoomByRoomId(roomId)
+                .flatMapMany(room -> Flux.fromIterable(room.getUsers()))
+                .flatMap(user -> {
+                    Long userId = user.getId();
+                    return redisTemplateForRooms.opsForValue().get(userId)
+                            .flatMap(sessionId -> {
+                                WebSocketSession sessionToSend = sessionMap.get(sessionId);
+                                return sendMessage(sessionToSend, type, payload);
+                            });
+                })
+                .then();
+    }
+
 
 }
