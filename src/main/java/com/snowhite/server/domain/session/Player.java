@@ -14,7 +14,6 @@ public class Player {
     private final String playerName;
     private PlayerRole playerRole;
     private final List<Integer> hand;
-    private final List<Integer> cards;
     private EnumSet<PlayerState> state;
     private int gold;
 
@@ -22,7 +21,6 @@ public class Player {
         this.playerId = playerId;
         this.playerName = playerName;
         hand = new ArrayList<>();
-        cards = new ArrayList<>();
         state = EnumSet.of(PlayerState.NORMAL);
         gold = 0;
     }
@@ -57,7 +55,7 @@ public class Player {
     }
 
     public void removeCard(int cardId) {
-        this.cards.remove(cardId);
+        this.hand.remove(cardId);
     }
-    public boolean hasCard(Integer cardId) { return this.cards.contains(cardId); }
+    public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 }

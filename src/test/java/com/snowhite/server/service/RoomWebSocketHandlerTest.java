@@ -76,7 +76,6 @@ class RoomWebSocketHandlerTest {
         testUser.setUsername("testuser");
         testUser.setPassword(passwordEncoder.encode("password"));
         testUser.setEmail("testuser@test.com");
-        testUser.setLoggedIn(true);
         testUser = userRepository.save(testUser);
 
         jwtToken = jwtProvider.generateToken(testUser.getId());
@@ -171,7 +170,6 @@ class RoomWebSocketHandlerTest {
         joinUser.setUsername("joinUser");
         joinUser.setEmail("joinUser@example.com");
         joinUser.setPassword("password");
-        joinUser.setLoggedIn(true);
 
         userRepository.save(joinUser);
 

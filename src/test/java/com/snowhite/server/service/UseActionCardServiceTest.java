@@ -82,7 +82,7 @@ public class UseActionCardServiceTest {
     void useActionCardSuccess() {
         //given: player1 -> player2 BROKEN_PICKAXE
         ActionCardUseRequest request = new ActionCardUseRequest(109, player1.getPlayerId(), player2.getPlayerId(), null, null, null);
-        player1.addCard(109);
+        player1.addCardToHand(109);
         //when
         Mono<ActionCardUsedResponse> response = gameService.useActionCard(GAME_ID, request);
         //then

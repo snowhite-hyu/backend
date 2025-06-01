@@ -3,6 +3,8 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowhite.server.domain.session.Game;
+import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
 import com.snowhite.server.websocket.dto.response.GameResponse;
@@ -29,12 +31,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GameWebSocketHandler implements WebSocketHandler {
 
+    private static final String GAME_PREFIX = "game:";
+
+    private final CardRepository cardRepository;
     private final GameService gameService;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
+    private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
 
     // 세션 저장 후 처리
@@ -99,6 +105,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                     objectMapper.treeToValue(payload.get("targetRepairState"), PlayerState.class) : null
                     );
                     return handleUseActionCard(session, gameId, request);
+                }
+
+                case "get-card": {
+                    long gameId = Long.parseLong(payload.get("gameId").asText());
+                    long playerId = Long.parseLong(payload.get("playerId").asText());
+                    return handleGetCard(session, gameId, playerId);
                 }
 
                 default:
@@ -177,6 +189,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
                     return Mono.when(uni, broad);
                 });
+    }
+
+    // 카드 가져오기
+    public Mono<Void> handleGetCard(WebSocketSession session, Long gameId, Long playerId) {
+        return gameService.getCard(gameId, playerId)
+                .flatMap(player -> sendMessage(session, "Got-Card", player));
     }
 
     // 게임 전체에 broadcast

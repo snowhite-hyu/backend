@@ -74,7 +74,7 @@ public class Game {
         return false;
     }
 
-    private void clearField() {
+    public void clearField() {
         this.field = new Integer[7][9][2];
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
@@ -93,7 +93,7 @@ public class Game {
         giveCardToPlayer(cardId, playerId);
     }
 
-    private Optional<Integer> drawCard() {
+    public Optional<Integer> drawCard() {
         if (deck.isEmpty()) {
             return Optional.empty();
         }
@@ -128,6 +128,21 @@ public class Game {
 
     private void shuffleGoldCards() {
         Collections.shuffle(goldCards);
+    }
+
+    public long nextTurn() {
+        int currentTurnPlayerIndex = 0;
+        if (currentTurnPlayerId != 0) {
+            for (int i = 0; i < players.size(); i++) {
+                if (players.get(i).getPlayerId() == currentTurnPlayerId) {
+                    currentTurnPlayerIndex = i;
+                    break;
+                }
+            }
+        }
+        int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
+        currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
+        return currentTurnPlayerId;
     }
 
     private boolean nextTurnAndReturnRoundFinished() {
@@ -257,7 +272,7 @@ public class Game {
         }
     }
 
-    private void setNewDeck() {
+    public void setNewDeck() {
         clearDeck();
         for (int i = 0; i <= 40; i++) {
             deck.add(i);    // 굴
