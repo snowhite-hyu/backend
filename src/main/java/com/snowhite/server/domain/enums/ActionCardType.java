@@ -1,0 +1,15 @@
+package com.snowhite.server.domain.enums;
+
+public enum ActionCardType {
+    BROKEN_PICKAXE,
+    BROKEN_MINECART,
+    BROKEN_LANTERN,
+    REPAIR_PICKAXE_AND_LANTERN,
+    REPAIR_PICKAXE_AND_MINECART,
+    REPAIR_LANTERN_MINECART,
+    REPAIR_PICKAXE,
+    REPAIR_LANTERN,
+    REPAIR_MINECART,
+    ROCKFALL,
+    MAP
+}

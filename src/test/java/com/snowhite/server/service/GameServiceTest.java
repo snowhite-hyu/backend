@@ -48,13 +48,13 @@ public class GameServiceTest {
 
         // 카드 얻기 전 플레이어의 카드 수
         game.setNewDeck();
-        int cardSize = player.getCards().size();
+        int cardSize = player.getHand().size();
 
         // 카드 한장 가져오기
         Player updatedPlayer = gameService.getCard(gameId, playerId).block();
 
         // 카드 얻기 전 카드 수 + 1 된건지 확인
-        List<Integer> cards = updatedPlayer.getCards();
+        List<Integer> cards = updatedPlayer.getHand();
         assertEquals(cardSize+1, cards.size());
 
         // 가져온 카드가 더미카드에 없는지 확인

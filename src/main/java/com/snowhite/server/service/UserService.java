@@ -1,13 +1,14 @@
 package com.snowhite.server.service;
 
 import com.snowhite.server.domain.entity.User;
+import com.snowhite.server.payload.exception.GeneralException;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
-import com.snowhite.server.web.dto.web.request.LoginRequestDto;
-import com.snowhite.server.web.dto.web.response.LoginResponseDto;
+import com.snowhite.server.web.dto.request.LoginRequestDto;
+import com.snowhite.server.web.dto.response.LoginResponseDto;
 import com.snowhite.server.payload.code.status.ErrorStatus;
-import com.snowhite.server.web.dto.web.request.EmailDto;
-import com.snowhite.server.web.dto.web.request.RegisterDto;
+import com.snowhite.server.web.dto.request.EmailDto;
+import com.snowhite.server.web.dto.request.RegisterDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -68,7 +69,7 @@ public class UserService {
 
     public Mono<Boolean> register(RegisterDto registerDto){
         if (!checkEmail(registerDto.getEmail())) {
-            return Mono.just(false);
+            throw new GeneralException(ErrorStatus._BAD_REQUEST);
         }
         User user = new User();
         user.setEmail(registerDto.getEmail());
