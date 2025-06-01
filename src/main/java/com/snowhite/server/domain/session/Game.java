@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Getter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Game {
 
     private long gameId;
@@ -36,6 +38,8 @@ public class Game {
         this.turnTime = turnTime;
         hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
+
+    public Game() {}
 
     public void clearFieldAndDeck() {
         clearField();
@@ -175,6 +179,10 @@ public class Game {
     public boolean isFlipped(int row, int col) {
         if (field[row][col][1] == 1) { return true; }
         else { return false; }
+    }
+
+    public Integer getCardIdAt(Integer row, Integer col) {
+        return field[row][col][0];
     }
 
 }

@@ -10,13 +10,13 @@ import java.util.List;
 
 @Getter
 public class Player {
-    private final long playerId;
+    private long playerId;
 
-    private final String playerName;
+    private String playerName;
 
     private PlayerRole playerRole;
 
-    private final List<Integer> cards;
+    private List<Integer> cards;
 
     private EnumSet<PlayerState> state;
 
@@ -29,6 +29,8 @@ public class Player {
         state = EnumSet.of(PlayerState.NORMAL);
         gold = 0;
     }
+
+    public Player() {}
 
     public void addCard(int cardId) {
         cards.add(cardId);

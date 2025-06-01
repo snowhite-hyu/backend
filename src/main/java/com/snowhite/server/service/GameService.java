@@ -10,14 +10,16 @@ import com.snowhite.server.domain.session.Player;
 import com.snowhite.server.payload.code.status.WsErrorStatus;
 import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.payload.exception.WebSocketException;
-import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
-import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
+import com.snowhite.server.websocket.dto.request.*;
+import com.snowhite.server.websocket.dto.response.*;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +34,8 @@ public class GameService {
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
+
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
     // game에 player를 join시킨 후 남은 player 수 리턴
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
@@ -171,7 +175,8 @@ public class GameService {
     private Flux<Card> getAllCardsFromRedis() {
         return reactiveRedisTemplateForCard
                 .scan(ScanOptions.scanOptions().match(CARD_PREFIX).build())
-                .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key));
+                .flatMap(key -> reactiveRedisTemplateForCard.opsForValue().get(key))
+                .doOnError(e -> log.error("카드 조회 중 에러", e));
     }
 
     private Player findPlayerByPlayerId(Game game, Long playerId) {
@@ -192,157 +197,6 @@ public class GameService {
             // TODO: 굴 카드 관련 로직
             return true;
         });
-    }
-
-    private Mono<Boolean> saveGameToRedisById(Game game) {
-        return reactiveRedisTemplateForGame.opsForValue()
-                .set(GAME_PREFIX + game.getGameId(), game);
-    }
-
-    private Mono<ActionCardUsedResponse> useRockfallCard(Game game, Player player, ActionCard actionCard, ActionCardUseRequest request, long gameId, long playerId) {
-        try {
-            if (request.locationX() == null || request.locationY() == null) {
-                return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-            }
-
-            int locationX = request.locationX();
-            int locationY = request.locationY();
-
-            if (!game.isPossibleLocationToGetCard(locationX, locationY)) {
-                return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
-            }
-            game.removeCard(locationX, locationY);
-            player.removeCard(actionCard.getId());
-
-            return saveGameToRedisById(game)
-                    .flatMap(success -> {
-                        if (success) {
-                            return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .gameId(gameId)
-                                            .message("success")
-                                            .actionCardId(actionCard.getId())
-                                            .usePlayerId(playerId)
-                                            .usePlayerCards(player.getCards())
-                                            .field(game.getField())
-                                    .build()
-                            );
-                        } else {
-                            return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
-                        }
-                    });
-
-
-        } catch (Exception e) {
-            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-        }
-    }
-
-    private Mono<ActionCardUsedResponse> useMapCard(Game game, Player player, ActionCard actionCard, ActionCardUseRequest request, long gameId, long playerId) {
-        try {
-            if (request.locationX() == null || request.locationY() == null) {
-                return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-            }
-            int locationX = request.locationX();
-            int locationY = request.locationY();
-
-            if (!game.isFlipped(locationX, locationY)) {
-                return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
-            }
-            player.removeCard(actionCard.getId());
-            return saveGameToRedisById(game)
-                    .flatMap(success -> {
-                        if(success) {
-                            return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .gameId(gameId)
-                                    .message("success")
-                                    .actionCardId(actionCard.getId())
-                                    .usePlayerId(playerId)
-                                    .usePlayerCards(player.getCards())
-                                    .build()
-                            );
-                        } else {
-                            return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
-                        }
-                    });
-        } catch (Exception e) {
-            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-        }
-    }
-
-    private Mono<ActionCardUsedResponse> handleRepairOrBrokenCards(Game game, Player player, Player targetPlayer, ActionCard actionCard, ActionCardUseRequest request, long gameId, long playerId) {
-        try {
-            List<PlayerState> repairState = getRepairStates(actionCard.getActionCardType());
-            List<PlayerState> brokenState = getBrokenStates(actionCard.getActionCardType());
-
-            if (!repairState.isEmpty()) {
-                return useRepairCard(game, player, targetPlayer, actionCard, request.targetRepairState(), gameId, playerId, repairState);
-            } else if (!brokenState.isEmpty()) {
-                return useBrokenCard(game, player, targetPlayer, actionCard, gameId, playerId, brokenState);
-            }
-            return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-        } catch (Exception e) {
-            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-        }
-    }
-
-    private Mono<ActionCardUsedResponse> useRepairCard(Game game, Player player, Player targetPlayer, ActionCard actionCard, PlayerState targetState, long gameId, long playerId, List<PlayerState> repairState) {
-        try {
-            if (repairState.stream().noneMatch(targetPlayer::hasState) || !repairState.contains(targetState)) {
-                return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-            }
-            targetPlayer.removePlayerState(targetState);
-            player.removeCard(actionCard.getId());
-
-            return saveGameToRedisById(game)
-                    .flatMap(success -> {
-                        if(success) {
-                            return Mono.just(new ActionCardUsedResponse.Builder()
-                                            .gameId(gameId)
-                                            .message("success")
-                                            .actionCardId(actionCard.getId())
-                                            .targetPlayerId(targetPlayer.getPlayerId())
-                                            .targetPlayerState(List.of(targetState))
-                                            .usePlayerId(playerId)
-                                            .usePlayerCards(player.getCards())
-                                            .build()
-                            );
-                        } else {
-                            return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-                        }
-                    });
-        } catch (Exception e) {
-            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-        }
-    }
-
-    private Mono<ActionCardUsedResponse> useBrokenCard(Game game, Player player, Player targetPlayer, ActionCard actionCard, long gameId, long playerId, List<PlayerState> brokenState) {
-        try {
-            if (brokenState.stream().anyMatch(targetPlayer::hasState)) {
-                return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-            }
-            brokenState.forEach(targetPlayer::addPlayerState);
-            player.removeCard(actionCard.getId());
-
-            return saveGameToRedisById(game)
-                    .flatMap(success -> {
-                        if(success) {
-                            return Mono.just(new ActionCardUsedResponse.Builder()
-                                    .gameId(gameId)
-                                    .message("success")
-                                    .actionCardId(actionCard.getId())
-                                    .targetPlayerId(targetPlayer.getPlayerId())
-                                    .targetPlayerState(new ArrayList<>(targetPlayer.getState()))
-                                    .usePlayerId(playerId)
-                                    .usePlayerCards(player.getCards())
-                                    .build()
-                            );
-                        } else {
-                            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-                        }
-                    });
-        } catch (Exception e) {
-            return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-        }
     }
 
     private List<PlayerState> getRepairStates(ActionCardType type) {
@@ -366,47 +220,186 @@ public class GameService {
         };
     }
 
-    public Mono<ActionCardUsedResponse> useActionCard(Long gamId, ActionCardUseRequest request) {
+    private Mono<Boolean> saveGameToRedis(Game game) {
+        return reactiveRedisTemplateForGame.opsForValue()
+                .set(GAME_PREFIX + game.getGameId(), game);
+    }
+
+    public Mono<RockfallCardUsedResponse> useRockfallCard(RockfallCardUseRequest request) {
         try {
+            Long gameId = request.gameId();
+            Long playerId = request.playerId();
+            Integer cardId = request.cardId();
+            Integer row = request.row();
+            Integer column = request.column();
 
-            long gameId = gamId;
-            long playerId = request.usePlayerId();
-            int actionCardId = request.cardId();
-
-            return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId)
+            return getGameByGameId(gameId)
                     .flatMap(game -> {
                         Player player = findPlayerByPlayerId(game, playerId);
-                        Player targetPlayer = findPlayerByPlayerId(game, request.targetPlayerId());
 
-                        if (player == null) {
+                        if (game.getCardIdAt(row, column) == -1) {
                             return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                         }
-                        if (!player.hasCard(actionCardId)) {
-                            return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
-                        }
-                        return findCardByCardId(actionCardId)
-                                .flatMap(card -> {
-                                    if (!(card instanceof ActionCard)) {
-                                        return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
-                                    }
 
-                                    ActionCard actionCard = (ActionCard) card;
+                        game.removeCard(row, column);
+                        player.removeCard(cardId);
 
-                                    switch (actionCard.getActionCardType()) {
-                                        case ROCKFALL -> {
-                                            return useRockfallCard(game, player, actionCard, request, gameId, playerId);
-                                        }
-                                        case MAP -> {
-                                            return useMapCard(game, player, actionCard, request, gameId, playerId);
-                                        }
-                                        default -> {
-                                            return handleRepairOrBrokenCards(game, player, targetPlayer, actionCard, request, gameId, playerId);
-                                        }
+                        return saveGameToRedis(game)
+                                .flatMap(success -> {
+                                    if (success) {
+                                        RockfallCardUsedResponse response = new RockfallCardUsedResponse(
+                                                gameId, "success", player.getCards(), game.getField()
+                                        );
+                                        return Mono.just(response);
+                                    } else {
+                                        return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
                                     }
                                 });
+                    })
+                    .onErrorResume(e -> Mono.error(e));
+
+        } catch (BusinessException e) {
+            return Mono.error(e);
+        } catch (Exception e) {
+            return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
+        }
+    }
+
+    public Mono<MapCardUsedResponse> useMapCard(MapCardUseRequest request) {
+        try {
+            Long gameId = request.gameId();
+            Long playerId = request.playerId();
+            Integer cardId = request.cardId();
+            Integer row = request.row();
+            Integer column = request.column();
+
+            return getGameByGameId(gameId)
+                    .flatMap(game -> {
+                        Player player = findPlayerByPlayerId(game, playerId);
+
+                        if (!game.isFlipped(row, column)) {
+                            return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
+                        }
+
+                        player.removeCard(cardId);
+
+                        return saveGameToRedis(game)
+                                .flatMap(success -> {
+                                    if (success) {
+                                        MapCardUsedResponse response = new MapCardUsedResponse(
+                                                gameId, "success", player.getCards(), game.getCardIdAt(row, column)
+                                        );
+                                        return Mono.just(response);
+                                    } else {
+                                        return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
+                                    }
+                                });
+                    })
+                    .onErrorResume(e -> {
+                        return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
                     });
+
+        } catch (BusinessException e) {
+            return Mono.error(e);
         } catch (Exception e) {
             return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
         }
+    }
+
+    public Mono<RepairCardUsedResponse> useRepairCard(RepairCardUseRequest request) {
+        Long gameId = request.gameId();
+        Long playerId = request.playerId();
+        Integer cardId = request.cardId();
+        Long targetPlayerId = request.targetPlayerId();
+        PlayerState targetState = request.targetState();
+
+        return getGameByGameId(gameId)
+                .flatMap(game -> {
+                    try {
+                        Player player = findPlayerByPlayerId(game, playerId);
+                        Player targetPlayer = findPlayerByPlayerId(game, targetPlayerId);
+
+                        return findCardByCardId(cardId)
+                                .flatMap(card -> {
+                                    try {
+                                        ActionCard repairCard = (ActionCard) card;
+                                        List<PlayerState> repairStates = getRepairStates(repairCard.getActionCardType());
+
+                                        if (repairStates.stream().noneMatch(targetPlayer::hasState) ||
+                                                !repairStates.contains(targetState)) {
+                                            return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
+                                        }
+
+                                        targetPlayer.removePlayerState(targetState);
+                                        player.removeCard(cardId);
+
+                                        return saveGameToRedis(game)
+                                                .flatMap(success -> {
+                                                    if (success) {
+                                                        return Mono.just(new RepairCardUsedResponse(
+                                                                gameId, "success", player.getCards(), List.of(targetState)
+                                                        ));
+                                                    } else {
+                                                        return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
+                                                    }
+                                                });
+                                    } catch (Exception e) {
+                                        return Mono.error(e);
+                                    }
+                                });
+                    } catch (Exception e) {
+                        return Mono.error(e);
+                    }
+                })
+                .onErrorResume(e -> {
+                    return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
+                });
+    }
+
+    public Mono<BrokenCardUsedResponse> useBrokenCard(BrokenCardUseRequest request) {
+        Long gameId = request.gameId();
+        Long playerId = request.playerId();
+        Integer cardId = request.cardId();
+        Long targetPlayerId = request.targetPlayerId();
+
+        return getGameByGameId(gameId)
+                .flatMap(game -> {
+                    try {
+                        Player player = findPlayerByPlayerId(game, playerId);
+                        Player targetPlayer = findPlayerByPlayerId(game, targetPlayerId);
+
+                        return findCardByCardId(cardId).flatMap(card -> {
+                            try {
+                                ActionCard brokenCard = (ActionCard) card;
+                                List<PlayerState> brokenStates = getBrokenStates(brokenCard.getActionCardType());
+
+                                if (brokenStates.stream().anyMatch(targetPlayer::hasState)) {
+                                    return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
+                                }
+
+                                brokenStates.forEach(targetPlayer::addPlayerState);
+                                player.removeCard(cardId);
+
+                                return saveGameToRedis(game).flatMap(success -> {
+                                    if (success) {
+                                        BrokenCardUsedResponse response = new BrokenCardUsedResponse(
+                                                gameId, "success", player.getCards(), new ArrayList<>(targetPlayer.getState())
+                                        );
+                                        return Mono.just(response);
+                                    } else {
+                                        return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
+                                    }
+                                });
+                            } catch (Exception e) {
+                                return Mono.error(e);
+                            }
+                        });
+                    } catch (Exception e) {
+                        return Mono.error(e);
+                    }
+                })
+                .onErrorResume(e -> {
+                    return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
+                });
     }
 }
