@@ -4,6 +4,6 @@ public record BrokenCardUseRequest(
         Long gameId,
         Long playerId,
         Long targetPlayerId,
-        Integer cardId
+        int cardId
 ) {
 }

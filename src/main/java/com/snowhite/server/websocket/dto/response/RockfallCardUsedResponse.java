@@ -4,7 +4,6 @@ import java.util.List;
 
 public record RockfallCardUsedResponse(
         Long gameId,
-        String message,
         List<Integer> playerHand,
         Integer[][][] filed
 ) {
@@ -12,7 +11,6 @@ public record RockfallCardUsedResponse(
     public RockfallCardUsedResponse unicast() {
         return new RockfallCardUsedResponse(
                 gameId,
-                message,
                 playerHand,
                 null
         );
@@ -21,7 +19,6 @@ public record RockfallCardUsedResponse(
     public RockfallCardUsedResponse broadcast() {
         return new RockfallCardUsedResponse(
                 gameId,
-                message,
                 null,
                 filed
         );

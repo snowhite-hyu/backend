@@ -194,7 +194,8 @@ public class Game {
     }
 
     public void removeCard(int row, int col) {
-        this.field[row][col] = null;
+        this.field[row][col][0] = -1;
+        this.field[row][col][1] = 0;
     }
 
     public void addCardsToDeck(List<Integer> cardIds) {

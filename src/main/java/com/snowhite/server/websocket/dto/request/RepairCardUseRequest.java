@@ -6,7 +6,7 @@ public record RepairCardUseRequest(
         Long gameId,
         Long playerId,
         Long targetPlayerId,
-        Integer cardId,
+        int cardId,
         PlayerState targetState
 ) {
 }

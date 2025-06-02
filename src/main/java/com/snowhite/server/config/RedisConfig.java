@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.*;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -81,7 +80,6 @@ public class RedisConfig {
     ) {
 
         Jackson2JsonRedisSerializer<Card> valueSerializer = new Jackson2JsonRedisSerializer<>(Card.class);
-
         RedisSerializationContext.RedisSerializationContextBuilder<String, Card> builder =
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
 
@@ -89,5 +87,4 @@ public class RedisConfig {
 
         return new ReactiveRedisTemplate<>(factory, context);
     }
-
 }

@@ -2,18 +2,22 @@ package com.snowhite.server.domain.session;
 
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
 @Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Player {
-    private final long playerId;
-    private final String playerName;
+    private long playerId;
+    private String playerName;
     private PlayerRole playerRole;
-    private final List<Integer> hand;
+    private List<Integer> hand;
     private EnumSet<PlayerState> state;
     private int gold;
 
@@ -21,7 +25,7 @@ public class Player {
         this.playerId = playerId;
         this.playerName = playerName;
         hand = new ArrayList<>();
-        state = EnumSet.of(PlayerState.NORMAL);
+        this.state = EnumSet.of(PlayerState.NORMAL);
         gold = 0;
     }
 
@@ -40,11 +44,21 @@ public class Player {
     }
 
     public void addPlayerState(PlayerState state) {
-        if (!hasState(state)) { this.state.add(state); }
+        if (!hasState(state)) {
+            this.state.add(state);
+        }
+        if(hasState(PlayerState.NORMAL)) {
+            removePlayerState(PlayerState.NORMAL);
+        }
     }
 
     public void removePlayerState(PlayerState state) {
-        if (hasState(state)) { this.state.remove(state); }
+        if (hasState(state)) {
+            this.state.remove(state);
+        }
+        if (this.state.isEmpty()) {
+            addPlayerState(PlayerState.NORMAL);
+        }
     }
 
     public boolean hasState(PlayerState state) {
@@ -57,7 +71,7 @@ public class Player {
     }
 
     public void removeCard(int cardId) {
-        this.hand.remove(cardId);
+        this.hand.remove(Integer.valueOf(cardId));
     }
     public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 }
