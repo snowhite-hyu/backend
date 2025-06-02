@@ -200,8 +200,8 @@ public class GameService {
                     .flatMap(game -> {
                         Player player = findPlayerByPlayerId(game, playerId);
                         log.info("[Rockfall] 플레이어 조회 성공 - playerId: {}", playerId);
-                        if (game.getCardIdAt(row, column) == -1) {
-                            log.warn("[Rockfall] 해당 위치에 카드 없음 - row: {}, column: {}", row, column);
+                        if (game.getPathCardIdAt(row, column) == -1) {
+                            log.warn("[Rockfall] 해당 위치에 카드 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                             return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                         }
 
@@ -253,8 +253,8 @@ public class GameService {
                             Player player = findPlayerByPlayerId(game, playerId);
                             log.info("[Map] 플레이어 조회 성공 - playerId: {}", playerId);
                             
-                            if (game.getCardIdAt(row, column) == -1) {
-                                log.warn("[Map] 해당 위치에 카드 없음 - row: {}, column: {}", row, column);
+                            if (game.getDestCardIdAt(row, column) == -1) {
+                                log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                             }
                             if (game.isFlipped(row, column)) {
@@ -268,7 +268,7 @@ public class GameService {
                                     .flatMap(success -> {
                                         if (success) {
                                             MapCardUsedResponse response = new MapCardUsedResponse(
-                                                    gameId, player.getHand(), game.getCardIdAt(row, column)
+                                                    gameId, player.getHand(), game.getPathCardIdAt(row, column)
                                             );
                                             log.info("[Map] 카드 사용 완료 - 응답 생성");
                                             return Mono.just(response);

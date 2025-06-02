@@ -47,7 +47,7 @@ public class Player {
         if (!hasState(state)) {
             this.state.add(state);
         }
-        if(hasState(PlayerState.NORMAL)) {
+        if(state != PlayerState.NORMAL && hasState(PlayerState.NORMAL)) {
             removePlayerState(PlayerState.NORMAL);
         }
     }

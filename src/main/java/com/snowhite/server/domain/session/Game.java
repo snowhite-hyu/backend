@@ -393,18 +393,22 @@ public class Game {
                 .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
                 .toList();
     }
-    // TODO: field 확장 기능 추가 후 구현
-    public boolean isPossibleLocationToGetCard(int row, int col) {
-        return true;
-    }
 
     public boolean isFlipped(int row, int col) {
         if (field[row][col][1] == 1) { return true; }
         else { return false; }
     }
 
-    public Integer getCardIdAt(Integer row, Integer col) {
-        return field[row][col][0];
+    public Integer getPathCardIdAt(Integer row, Integer col) {
+        // 시작, 목적지 카드인 경우
+        if ((row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;
+        else return field[row][col][0];
+    }
+
+    public Integer getDestCardIdAt(Integer row, Integer col) {
+        // 목적지 카드가 맞는 경우
+        if ((row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return field[row][col][0];
+        else return -1;
     }
 
 }

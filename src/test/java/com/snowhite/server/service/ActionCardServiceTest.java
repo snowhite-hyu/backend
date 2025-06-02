@@ -6,6 +6,7 @@ import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.websocket.dto.request.BrokenCardUseRequest;
 import com.snowhite.server.websocket.dto.request.MapCardUseRequest;
 import com.snowhite.server.websocket.dto.request.RepairCardUseRequest;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @AutoConfigureWebTestClient
-public class UseActionCardServiceTest {
+public class ActionCardServiceTest {
 
     private ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
@@ -99,6 +100,62 @@ public class UseActionCardServiceTest {
                 })
                 .verifyComplete();
     }
+    // 1. 빈 필드(-1) 위치에 대해 rockfall 시도
+    @Test
+    void rockfallFail_whenTargetFieldIsEmpty() {
+        rockFallCardSetup();
+        game.getField()[5][5][0] = -1;
+
+        RockfallCardUseRequest request = new RockfallCardUseRequest(
+                GAME_ID, player1.getPlayerId(), actionCardId, 5, 5
+        );
+        Mono<RockfallCardUsedResponse> response = gameService.useRockfallCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
+    }
+    // 2. 시작 카드 위치에 대해 rockfall 시도
+    @Test
+    void rockfallFail_whenTargetIsStartCard() {
+        rockFallCardSetup();
+
+        int startRow = 3; int startCol = 0;
+
+        RockfallCardUseRequest request = new RockfallCardUseRequest(
+                GAME_ID, player1.getPlayerId(), actionCardId, startRow, startCol
+        );
+        Mono<RockfallCardUsedResponse> response = gameService.useRockfallCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
+    }
+
+    // 3. 목적지 카드 위치에 대해 rockfall 시도
+    @Test
+    void rockfallFail_whenTargetIsDestCard() {
+        rockFallCardSetup();
+        int[][] destPositions = {
+                {1, 8},
+                {3, 8},
+                {5, 8}
+        };
+
+        for (int[] pos : destPositions) {
+            int row = pos[0];
+            int col = pos[1];
+
+            RockfallCardUseRequest request = new RockfallCardUseRequest(
+                    GAME_ID, player1.getPlayerId(), actionCardId, row, col
+            );
+            Mono<RockfallCardUsedResponse> response = gameService.useRockfallCard(request);
+
+            StepVerifier.create(response)
+                    .expectError(BusinessException.class)
+                    .verify();
+        }
+    }
 
     void mapCardSetup() {
         GAME_ID = 2L;
@@ -118,7 +175,6 @@ public class UseActionCardServiceTest {
     @Test
     void mapCardSuccessTest() {
         mapCardSetup();
-
         MapCardUseRequest request = new MapCardUseRequest(
                 GAME_ID, player1.getPlayerId(), actionCardId, 1, 8
         );
@@ -131,6 +187,21 @@ public class UseActionCardServiceTest {
                 .verifyComplete();
     }
 
+    // 1. 목적지 카드가 아닌 위치에 map 시도
+    @Test
+    void mapFail_whenTargetIsEmptyField(){
+        mapCardSetup();
+        MapCardUseRequest request = new MapCardUseRequest(
+                GAME_ID, player1.getPlayerId(), actionCardId, 5, 5
+        );
+        Mono<MapCardUsedResponse> response = gameService.useMapCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
+
+    }
+
     void repairCardSetup() {
         GAME_ID = 3L;
         List<Player> players = List.of(player1, player2, player3, player4, player5);
@@ -138,8 +209,6 @@ public class UseActionCardServiceTest {
         game.clearField();
         actionCardId = 104; // repair card id: REPAIR_PICKAXE_AND_LANTERN
         player1.addCardToHand(actionCardId);
-        player2.addPlayerState(PlayerState.BROKEN_PICKAXE);
-        player2.addPlayerState(PlayerState.BROKEN_LANTERN);
         when(valueOperationsForGame.get(eq(GAME_PREFIX + GAME_ID))).thenReturn(Mono.just(game));
         when(valueOperationsForGame.set(eq(GAME_PREFIX + GAME_ID), any(Game.class))).thenReturn(Mono.just(true));
 
@@ -150,10 +219,11 @@ public class UseActionCardServiceTest {
     @Test
     void repairCardSuccessTest() {
         repairCardSetup();
+        player2.addPlayerState(PlayerState.BROKEN_PICKAXE);
+        player2.addPlayerState(PlayerState.BROKEN_LANTERN);
         RepairCardUseRequest request = new RepairCardUseRequest(
                 GAME_ID, player1.getPlayerId(), player2.getPlayerId(), actionCardId, PlayerState.BROKEN_PICKAXE
         );
-
         Mono<RepairCardUsedResponse> response = gameService.useRepairCard(request);
 
         StepVerifier.create(response)
@@ -163,6 +233,36 @@ public class UseActionCardServiceTest {
                     assertTrue(res.targetPlayerState().contains(PlayerState.BROKEN_LANTERN));
                 })
                 .verifyComplete();
+    }
+
+    // 1. tragetPlayer에 수리하고자 하는 brokenState가 없는 경우
+    @Test
+    void repairFail_whenTargetHasNoBrokenState() {
+        repairCardSetup();
+
+        player2.addPlayerState(PlayerState.NORMAL);
+        RepairCardUseRequest request = new RepairCardUseRequest(
+                GAME_ID, player1.getPlayerId(), player2.getPlayerId(), actionCardId, PlayerState.BROKEN_PICKAXE
+        );
+        Mono<RepairCardUsedResponse> response = gameService.useRepairCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
+    }
+    // 2. repair card 종류와는 다른 targetState를 지정
+    @Test
+    void repairFail_whenTargetStateDoesNotMatchCardType() {
+        repairCardSetup();
+
+        RepairCardUseRequest request = new RepairCardUseRequest(
+                GAME_ID, player1.getPlayerId(), player2.getPlayerId(), actionCardId, PlayerState.BROKEN_MINECART
+        );
+        Mono<RepairCardUsedResponse> response = gameService.useRepairCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
     }
 
     void brokenCardSetup() {
@@ -187,7 +287,6 @@ public class UseActionCardServiceTest {
         BrokenCardUseRequest request = new BrokenCardUseRequest(
                 GAME_ID, player1.getPlayerId(), player2.getPlayerId(), actionCardId
         );
-
         Mono<BrokenCardUsedResponse> response = gameService.useBrokenCard(request);
 
         StepVerifier.create(response)
@@ -198,4 +297,22 @@ public class UseActionCardServiceTest {
                 })
                 .verifyComplete();
     }
+    
+    // 1. targetPlayer가 이미 해당 playerState를 가지고 있는 경우
+    @Test
+    void brokenFail_whenTargetHasSameBrokenState() {
+        brokenCardSetup();
+        player2.addPlayerState(PlayerState.BROKEN_PICKAXE);
+
+        BrokenCardUseRequest request = new BrokenCardUseRequest(
+                GAME_ID, player1.getPlayerId(), player2.getPlayerId(), actionCardId
+        );
+
+        Mono<BrokenCardUsedResponse> response = gameService.useBrokenCard(request);
+
+        StepVerifier.create(response)
+                .expectError(BusinessException.class)
+                .verify();
+    }
+    
 }
