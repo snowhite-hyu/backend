@@ -1,6 +1,5 @@
 package com.snowhite.server.domain.session;
 
-import com.fasterxml.jackson.annotation.JsonView;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.Getter;
@@ -67,9 +66,10 @@ public class Game {
 
         setNewDeck();
         shufflePlayers();
+        initializeAllPlayersState();
         initializeNewField();
-        initializeAllPlayerRole();
-        initializeAllPlayerHands();
+        initializeAllPlayersRole();
+        initializeAllPlayersHands();
         nextTurnAndReturnRoundFinished();
         return false;
     }
@@ -171,7 +171,7 @@ public class Game {
         return deck.isEmpty() && handsEmpty;
     }
 
-    private int placeCard(int row, int column, int cardId, int isFlipped) {
+    public int placeCard(int row, int column, int cardId, int isFlipped) {
         field[row][column][0] = cardId;
         field[row][column][1] = isFlipped;
         return cardId;
@@ -200,8 +200,13 @@ public class Game {
         this.deck.addAll(cardIds);
     }
 
+    // 모든 player의 state 초기화
+    private void initializeAllPlayersState() {
+        players.forEach(Player::initializePlayerStateToNormal);
+    }
+
     // 모든 player의 역할 초기화
-    private void initializeAllPlayerRole() {
+    private void initializeAllPlayersRole() {
         int playerCount = getPlayerCount();
         int dwarf = 0;
         int saboteur = 0;
@@ -246,7 +251,7 @@ public class Game {
     }
 
     // 모든 player의 손패 초기화
-    private void initializeAllPlayerHands() {
+    private void initializeAllPlayersHands() {
         int playerCount = getPlayerCount();
         int cardNumber = 0;
 
@@ -274,7 +279,7 @@ public class Game {
 
     public void setNewDeck() {
         clearDeck();
-        for (int i = 0; i <= 40; i++) {
+        for (int i = 1; i <= 40; i++) {
             deck.add(i);    // 굴
         }
         for (int i = 0; i < 2; i++) {
