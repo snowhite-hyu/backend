@@ -262,7 +262,7 @@ public class GameService {
                                 return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
                             }
                             player.removeCard(cardId);
-                            log.info("[Rockfall] player로부터 카드 제거 완료 - cardId: {})", cardId);
+                            log.info("[Map] player로부터 카드 제거 완료 - cardId: {})", cardId);
 
                             return saveGameToRedis(game)
                                     .flatMap(success -> {
