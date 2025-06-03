@@ -108,11 +108,10 @@ class GameTest {
         player2.addPlayerState(PlayerState.BROKEN_MINECART);
         player3.addPlayerState(PlayerState.BROKEN_LANTERN);
 
-        // player 핸드 조작
-        player1.addCardToHand(7);
-        player2.addCardToHand(8);
-        player3.addCardToHand(9);
-
+        // deck, player hand 조작
+        game.drawAndGiveCardToPlayer(1L);
+        game.drawAndGiveCardToPlayer(2L);
+        game.drawAndGiveCardToPlayer(3L);
 
         // round 2 시작
         isGameFinished = game.startNextRoundAndReturnGameFinished();
@@ -157,8 +156,6 @@ class GameTest {
         // 게임 종료 검사
         isGameFinished = game.startNextRoundAndReturnGameFinished();
         assertTrue(isGameFinished);
-
-
 
     }
 }

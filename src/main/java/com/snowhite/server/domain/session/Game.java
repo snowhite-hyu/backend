@@ -88,7 +88,7 @@ public class Game {
         deck.clear();
     }
 
-    private void drawAndGiveCardToPlayer(long playerId) {
+    public void drawAndGiveCardToPlayer(long playerId) {
         int cardId = drawCard().get();
         giveCardToPlayer(cardId, playerId);
     }
