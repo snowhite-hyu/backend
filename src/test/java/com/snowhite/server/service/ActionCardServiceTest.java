@@ -114,6 +114,8 @@ public class ActionCardServiceTest {
         StepVerifier.create(response)
                 .expectError(BusinessException.class)
                 .verify();
+
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
     }
     // 2. 시작 카드 위치에 대해 rockfall 시도
     @Test
@@ -130,6 +132,9 @@ public class ActionCardServiceTest {
         StepVerifier.create(response)
                 .expectError(BusinessException.class)
                 .verify();
+
+        assertEquals(10, game.getField()[5][5][0]); // field가 변하지 않음
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
     }
 
     // 3. 목적지 카드 위치에 대해 rockfall 시도
@@ -154,6 +159,9 @@ public class ActionCardServiceTest {
             StepVerifier.create(response)
                     .expectError(BusinessException.class)
                     .verify();
+
+            assertEquals(10, game.getField()[5][5][0]); // field가 변하지 않음
+            assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
         }
     }
 
@@ -175,6 +183,7 @@ public class ActionCardServiceTest {
     @Test
     void mapCardSuccessTest() {
         mapCardSetup();
+
         MapCardUseRequest request = new MapCardUseRequest(
                 GAME_ID, player1.getPlayerId(), actionCardId, 1, 8
         );
@@ -200,6 +209,7 @@ public class ActionCardServiceTest {
                 .expectError(BusinessException.class)
                 .verify();
 
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
     }
 
     void repairCardSetup() {
@@ -249,6 +259,11 @@ public class ActionCardServiceTest {
         StepVerifier.create(response)
                 .expectError(BusinessException.class)
                 .verify();
+
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
+        // target player의 상태가 변하지 않음
+        assertTrue(player2.getState().contains(PlayerState.NORMAL));
+
     }
     // 2. repair card 종류와는 다른 targetState를 지정
     @Test
@@ -263,6 +278,11 @@ public class ActionCardServiceTest {
         StepVerifier.create(response)
                 .expectError(BusinessException.class)
                 .verify();
+
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
+        // target player의 상태가 변하지 않음
+        assertTrue(player2.getState().contains(PlayerState.BROKEN_PICKAXE));
+        assertFalse(player2.getState().contains(PlayerState.NORMAL));
     }
 
     void brokenCardSetup() {
@@ -313,6 +333,11 @@ public class ActionCardServiceTest {
         StepVerifier.create(response)
                 .expectError(BusinessException.class)
                 .verify();
+
+        assertTrue(player1.getHand().contains(actionCardId)); // player 패가 변하지 않음
+        // target player의 상태가 변하지 않음
+        assertTrue(player2.getState().contains(PlayerState.BROKEN_PICKAXE));
+        assertTrue(player2.getState().contains(PlayerState.BROKEN_LANTERN));
     }
     
 }

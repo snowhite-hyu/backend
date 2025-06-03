@@ -4,7 +4,7 @@ public record RockfallCardUseRequest(
         Long gameId,
         Long playerId,
         int cardId,
-        Integer row,
-        Integer column
+        int row,
+        int column
 ) {
 }

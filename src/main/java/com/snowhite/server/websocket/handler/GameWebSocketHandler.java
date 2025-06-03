@@ -190,7 +190,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                         return broadcastMessageToGame(gameId, "Game-Joined", result);
                     }
                     return gameService.processNextRoundOrFinishRound(gameId)
-                            .flatMap(result -> broadcastMessageToGame(gameId, "Round-Started", result));
+                            .flatMap(result ->  broadcastMessageToGame(gameId, "Round-Started", result));
                 });
     }
 
@@ -227,9 +227,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
                     Mono<Void> uni = sendMessage(session, "Unicast: Rockfall-Card-Use", response.unicast());
-                    //Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Rockfall-Card-Use", response.broadcast());
-                    //return Mono.when(uni, broad);
-                    return uni;
+                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Rockfall-Card-Use", response.broadcast());
+                    return Mono.when(uni, broad);
                 })
                 .onErrorResume(e -> {
                     log.error("<rockfall card 처리 중 에러 발생>", e);
@@ -241,9 +240,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useMapCard(request)
                 .flatMap(response -> {
                     Mono<Void> uni = sendMessage(session, "Unicast: Map-Card-Use", response.unicast());
-                    //Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Map-Card-Use", response.broadcast());
-                    //return Mono.when(uni, broad);
-                    return uni;
+                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Map-Card-Use", response.broadcast());
+                    return Mono.when(uni, broad);
                 })
                 .onErrorResume(e -> {
                     log.error("<map card 처리 중 에러 발생>", e);
@@ -255,9 +253,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRepairCard(request)
                 .flatMap(response -> {
                     Mono<Void> uni = sendMessage(session, "Unicast: Repair-Card-Use", response.unicast());
-                    //Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Repair-Card-Use", response.broadcast());
-                    //return Mono.when(uni, broad);
-                    return uni;
+                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Repair-Card-Use", response.broadcast());
+                    return Mono.when(uni, broad);
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
@@ -288,6 +285,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
     }
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
+        if (payload == null) {
+            return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
+        }
 
         return gameService.getGameByGameId(gameId)
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
@@ -295,6 +295,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     Long playerId = player.getPlayerId();
                     return reactiveRedisTemplateForSession.opsForValue().get(playerId)
                             .flatMap(sessionId -> {
+                                if(sessionId == null) return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 if(sessionToSend == null) return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                                 return sendMessage(sessionToSend, type, payload);

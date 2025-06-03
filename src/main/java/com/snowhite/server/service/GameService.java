@@ -213,7 +213,7 @@ public class GameService {
                                 .flatMap(success -> {
                                     if (success) {
                                         RockfallCardUsedResponse response = new RockfallCardUsedResponse(
-                                                gameId, player.getHand(), game.getField()
+                                                gameId, playerId, cardId, row, column, player.getHand(), game.getField()
                                         );
                                         log.info("[Rockfall] 카드 사용 완료 - 응답 생성");
                                         return Mono.just(response);
@@ -268,7 +268,7 @@ public class GameService {
                                     .flatMap(success -> {
                                         if (success) {
                                             MapCardUsedResponse response = new MapCardUsedResponse(
-                                                    gameId, player.getHand(), game.getPathCardIdAt(row, column)
+                                                    gameId, playerId, cardId, row, column, player.getHand(), game.getDestCardIdAt(row, column)
                                             );
                                             log.info("[Map] 카드 사용 완료 - 응답 생성");
                                             return Mono.just(response);
@@ -350,7 +350,7 @@ public class GameService {
                                                     if (success) {
                                                         log.info("[Repair] Redis 저장 완료");
                                                         return Mono.just(new RepairCardUsedResponse(
-                                                                gameId, player.getHand(), targetPlayer.getState()
+                                                                gameId, playerId, targetPlayerId, cardId, player.getHand(), targetPlayer.getState()
                                                         ));
                                                     } else {
                                                         log.error("[Repair] Redis 저장 실패");
@@ -430,7 +430,7 @@ public class GameService {
                                                     if (success) {
                                                         log.info("[Broken] Redis 저장 완료");
                                                         return Mono.just(new BrokenCardUsedResponse(
-                                                                gameId, player.getHand(), new ArrayList<>(targetPlayer.getState())
+                                                                gameId, playerId, targetPlayerId, cardId, player.getHand(), new ArrayList<>(targetPlayer.getState())
                                                         ));
                                                     } else {
                                                         log.error("[Broken] Redis 저장 실패");
