@@ -202,16 +202,20 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
         return gameService.processUsePathCard(gameId, playerId, cardId, row, column, isFlipped)
                 .flatMap(usePathCardResultDTO -> {
+                    // 요청된 위치에 카드를 놓지 못하는 경우
                     if (!usePathCardResultDTO.isPossibleToPlace()) {
                         return sendMessage(session, "Place-PathCard-Failed", usePathCardResultDTO.fieldResponse());
                     }
+
+                    // 카드를 놓은 후 라운드가 끝나는 경우
                     if (usePathCardResultDTO.isRoundFinished()) {
                         return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
                                 .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
                                 .then(Mono.delay(Duration.ofSeconds(5)))
-                                // 역할 공개
-                                .then(broadcastMessageToGame(gameId, "Round-Finished", usePathCardResultDTO.secretPlayerResponseList()));
+                                // 역할 및 금덩이 분배 결과 공개
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", usePathCardResultDTO.roundFinishedResponse()));
                     }
+
                     return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()));
                 });

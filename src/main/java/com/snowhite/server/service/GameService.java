@@ -3,6 +3,7 @@ package com.snowhite.server.service;
 import com.snowhite.server.domain.entity.ActionCard;
 import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.entity.PathCard;
+import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
@@ -23,9 +24,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -383,27 +382,63 @@ public class GameService {
         return getGameByGameId(gameId)
                 .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
                         .flatMap(isPossible -> {
+                            boolean isDwarfWon = false;
+                            boolean isRoundFinished = false;
+                            boolean isGameFinished = false;
                             FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
 
                             // 카드를 놓을 수 없으면 바로 리턴
                             if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
 
-                            game.placeCard(row, column, cardId, isFlipped);
+                            // 굴 카드 배치 후 금 목적지 도달 여부
+                            if (game.placePathCardAndReturnRoundFinished(row, column, cardId, isFlipped)) {
+                                isDwarfWon = true;
+                                isRoundFinished = true;
+                            }
+
                             game.drawAndGiveCardToPlayer(playerId);
-                            boolean isRoundFinished = game.nextTurnAndReturnRoundFinished();
-                            boolean isGameFinished = false;
+                            if (game.nextTurnAndReturnRoundFinished()) {
+                                isRoundFinished = true;
+                            }
+
                             PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
 
                             // 라운드가 끝났으면 역할 공개 필요
                             if (isRoundFinished) {
+                                // 광부가 이긴 경우
+                                if (isDwarfWon) {
+                                    Map<Long, Integer> distributedGoldInfo = game.distributeGoldToDwarf(playerId);
+                                    List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                            .map(entry -> {
+                                                long id = entry.getKey();
+                                                int gainedGold = entry.getValue();
+                                                Player player = findPlayerByPlayerId(game, id);
+                                                return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                            }).toList();
+
+                                    return setGameToRedis(gameId, game)
+                                            .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                    fieldResponse,
+                                                    publicPlayerResponse,
+                                                    RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
+                                            ));
+                                }
+                                // 사보타지가 이긴 경우
+                                Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                                List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                        .map(entry -> {
+                                            long id = entry.getKey();
+                                            int gainedGold = entry.getValue();
+                                            Player player = findPlayerByPlayerId(game, id);
+                                            return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                        }).toList();
+
                                 return setGameToRedis(gameId, game)
-                                        .then(getAllSecretPlayerInfo(game)
-                                                .map(secretPlayerResponseList -> UsePathCardResultDTO.forRoundFinishedResult(
-                                                        fieldResponse,
-                                                        publicPlayerResponse,
-                                                        secretPlayerResponseList
-                                                ))
-                                        );
+                                        .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                fieldResponse,
+                                                publicPlayerResponse,
+                                                RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
+                                        ));
                             }
 
                             // 라운드가 끝나지 않았으면 역할 공개는 불필요
@@ -428,48 +463,58 @@ public class GameService {
                     Mono<Boolean> leftCheck = Mono.just(true);
                     Mono<Boolean> rightCheck = Mono.just(true);
 
+                    Set<Integer> destinationCardIds = Set.of(61, 62, 63);
+
                     // 위쪽 검사
                     if (row > 0 && field[row - 1][column][0] != -1) { // 놓을 자리가 맨 위가 아니고 위에 카드가 있는 경우
                         int upperCardId = field[row - 1][column][0];
                         int upperCardFlipped = field[row - 1][column][1];
-                        upperCheck = cardService.findCardByCardId(upperCardId)
-                                .cast(PathCard.class)
-                                .map(upperCard ->
-                                        cardToPlace.isUpperOpened(flipped) == upperCard.isLowerOpened(upperCardFlipped)
-                                );
+                        if (!destinationCardIds.contains(upperCardId)) {
+                            upperCheck = cardService.findCardByCardId(upperCardId)
+                                    .cast(PathCard.class)
+                                    .map(upperCard ->
+                                            cardToPlace.isUpperOpened(flipped) == upperCard.isLowerOpened(upperCardFlipped)
+                                    );
+                        }
                     }
 
                     // 아래쪽 검사
                     if (row < field.length - 1 && field[row + 1][column][0] != -1) { // 놓을 자리가 맨 아래가 아니고 아래에 카드가 있는 경우
                         int lowerCardId = field[row + 1][column][0];
                         int lowerCardFlipped = field[row + 1][column][1];
-                        lowerCheck = cardService.findCardByCardId(lowerCardId)
-                                .cast(PathCard.class)
-                                .map(lowerCard ->
-                                        cardToPlace.isLowerOpened(flipped) == lowerCard.isUpperOpened(lowerCardFlipped)
-                                );
+                        if (!destinationCardIds.contains(lowerCardId)) {
+                            lowerCheck = cardService.findCardByCardId(lowerCardId)
+                                    .cast(PathCard.class)
+                                    .map(lowerCard ->
+                                            cardToPlace.isLowerOpened(flipped) == lowerCard.isUpperOpened(lowerCardFlipped)
+                                    );
+                        }
                     }
 
                     // 왼쪽 카드 검사
                     if (column > 0 && field[row][column - 1][0] != -1) { // 놓을 자리가 맨 왼쪽이 아니고 왼쪽에 카드가 있는 경우
                         int leftCardId = field[row][column - 1][0];
                         int leftCardFlipped = field[row][column - 1][1];
-                        leftCheck = cardService.findCardByCardId(leftCardId)
-                                .cast(PathCard.class)
-                                .map(leftCard ->
-                                        cardToPlace.isLeftOpened(flipped) == leftCard.isRightOpened(leftCardFlipped)
-                                );
+                        if (!destinationCardIds.contains(leftCardId)) {
+                            leftCheck = cardService.findCardByCardId(leftCardId)
+                                    .cast(PathCard.class)
+                                    .map(leftCard ->
+                                            cardToPlace.isLeftOpened(flipped) == leftCard.isRightOpened(leftCardFlipped)
+                                    );
+                        }
                     }
 
                     // 오른쪽 카드 검사
                     if (column < field[0].length - 1 && field[row][column + 1][0] != -1) { // 놓을 자리가 맨 오른쪽이 아니고 오른쪽에 카드가 있는 경우
                         int rightCardId = field[row][column + 1][0];
                         int rightCardFlipped = field[row][column + 1][1];
-                        rightCheck = cardService.findCardByCardId(rightCardId)
-                                .cast(PathCard.class)
-                                .map(rightCard ->
-                                        cardToPlace.isRightOpened(flipped) == rightCard.isLeftOpened(rightCardFlipped)
-                                );
+                        if (!destinationCardIds.contains(rightCardId)) {
+                            rightCheck = cardService.findCardByCardId(rightCardId)
+                                    .cast(PathCard.class)
+                                    .map(rightCard ->
+                                            cardToPlace.isRightOpened(flipped) == rightCard.isLeftOpened(rightCardFlipped)
+                                    );
+                        }
                     }
 
                     // 다 모아서 전부 true인 경우 true

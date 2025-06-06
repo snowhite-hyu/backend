@@ -189,6 +189,30 @@ public class Game {
         return cardId;
     }
 
+    public boolean placePathCardAndReturnRoundFinished(int cardId, int row, int column, int isFlipped) {
+        placeCard(row, column, cardId, isFlipped);
+
+        int goldRow = 1;
+        int goldColumn = 8;
+
+        if (field[3][8][0] == 63) {
+            goldRow = 3;
+        }
+        if (field[5][8][0] == 63) {
+            goldRow = 5;
+        }
+
+        if ((row == goldRow - 1 && column == goldColumn) ||
+                (row == goldRow + 1 && column == goldColumn) ||
+                (row == goldRow && column == goldColumn - 1) ||
+                (row == goldRow && column == goldColumn + 1)) {
+            return true;
+        }
+
+        return false;
+
+    }
+
     // 출발지, 목적지 카드 세팅
     private void initializeNewField() {
         clearField();
@@ -334,6 +358,7 @@ public class Game {
     public Map<Long, Integer> distributeGoldToDwarf(long winnerPlayerId) {
         Map<Long, Integer> result = new HashMap<>();
         List<Player> dwarfPlayers = getDwarfPlayers();
+        List<Player> saboteurPlayers = getSaboteurPlayers();
         List<Integer> goldCardsToDistribute = new ArrayList<>();
 
         for (int i = 0; i < dwarfPlayers.size(); i++) {
@@ -355,12 +380,17 @@ public class Game {
             }
         }
 
+        for (Player saboteurPlayer : saboteurPlayers) {
+            result.put(saboteurPlayer.getPlayerId(), 0);
+        }
+
         return result;
     }
 
     // 큰 금덩이 카드부터 사용하면서 정해진 수만큼 분배
     public Map<Long, Integer> distributeGoldToSaboteur() {
         Map<Long, Integer> result = new HashMap<>();
+        List<Player> dwarfPlayers = getDwarfPlayers();
         List<Player> saboteurPlayers = getSaboteurPlayers();
 
         int saboteurCount = saboteurPlayers.size();
@@ -391,6 +421,10 @@ public class Game {
 
             saboteurPlayer.addGold(givenGold);
             result.put(saboteurPlayer.getPlayerId(), givenGold);
+        }
+
+        for (Player dwarfPlayer : dwarfPlayers) {
+            result.put(dwarfPlayer.getPlayerId(), 0);
         }
 
         shuffleGoldCards();
