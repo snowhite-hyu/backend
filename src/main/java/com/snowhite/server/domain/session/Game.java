@@ -149,8 +149,6 @@ public class Game {
         return currentTurnPlayerId;
     }
 
-
-    //TODO: 핸드가 없으면 다음으로 넘어가도록
     public boolean nextTurnAndReturnRoundFinished() {
         if (checkDeckAndHandsEmpty()) {
             return true;
@@ -164,9 +162,17 @@ public class Game {
                 }
             }
         }
-        int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
-        currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
-        return false;
+
+        for (int i = 0; i < players.size(); i++) {
+            int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
+            Player nextPlayer = players.get(nextTurnIndex);
+            if (!nextPlayer.getHand().isEmpty()) { // 핸드가 비어있지 않아야 턴 할당
+                currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private boolean checkDeckAndHandsEmpty() {
