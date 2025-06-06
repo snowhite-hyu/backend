@@ -7,10 +7,10 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum PlayerState {
-    NORMAL("normal"),
-    BROKEN_PICKAXE("broken_pickaxe"),
-    BROKEN_MINECART("broken_mincart"),
-    BROKEN_LANTERN("broken_lantern");
+    NORMAL("NORMAL"),
+    BROKEN_PICKAXE("BROKEN_PICKAXE"),
+    BROKEN_MINECART("BROKEN_MINECART"),
+    BROKEN_LANTERN("BROKEN_LANTERN");
     private final String description;
 
     @JsonCreator
