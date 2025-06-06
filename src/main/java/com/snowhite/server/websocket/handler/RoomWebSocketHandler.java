@@ -30,12 +30,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RoomWebSocketHandler implements WebSocketHandler {
 
-    private static final AtomicLong roomIdGenerator = new AtomicLong(0);
+    private static final String ROOM_SESSION_PREFIX = "room_session:";
 
-    private final ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
@@ -45,12 +44,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
     public RoomWebSocketHandler(
             @Qualifier("reactiveRedisTemplateForSessionIds")
-            ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds,
+            ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds,
             JwtProvider jwtProvider,
             ObjectMapper objectMapper,
             RoomService roomService
     ) {
-        this.redisTemplateForSessionIds = redisTemplateForSessionIds;
+        this.reactiveRedisTemplateForSessionIds = reactiveRedisTemplateForSessionIds;
         this.jwtProvider = jwtProvider;
         this.objectMapper = objectMapper;
         this.roomService = roomService;
@@ -127,6 +126,14 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 {
                     long roomId = Long.parseLong(node.get("roomId").asText());
                     return handleStartGame(session, roomId);
+                }
+
+                case "chat": {
+                    long userId = jwtProvider.extractUserIdFromToken(token);
+                    Long roomId = Long.parseLong(node.get("roomId").asText());
+                    String message = node.get("message").asText();
+
+                    return handleChatMessage(session, userId, roomId, message);
                 }
 
                 default:
@@ -237,5 +244,26 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .then();
     }
 
+    private Mono<Void> handleChatMessage(WebSocketSession session, long userId, Long roomId, String message) {
+
+        return roomService.getRoomByRoomId(roomId)
+                .flatMap(room -> {
+                    User sender = room.getUsers().stream()
+                            .filter(u -> u.getId() == userId)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (sender == null) {
+                        return sendMessage(session, "error", "User is not in room");
+                    }
+                    
+                    // payload: { user: User, message: String }
+                    com.fasterxml.jackson.databind.node.ObjectNode chatPayload = objectMapper.createObjectNode();
+                    chatPayload.set("user", objectMapper.valueToTree(sender));
+                    chatPayload.put("message", message);
+                    return broadcastMessageToRoom(roomId, "chat", chatPayload);
+                })
+                .switchIfEmpty(sendMessage(session, "error", "Room is not found"));
+    }
 
 }

@@ -29,23 +29,25 @@ public class RoomService {
 
     private static final String ROOM_PREFIX = "room:";
     private static final String GAME_PREFIX = "game:";
+    private static final String ROOM_SESSION_PREFIX = "room_session:";
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
     private final UserRepository userRepository;
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms;
-    private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSessionIds;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
     private final GameService gameService;
 
     public RoomService (
             UserRepository userRepository,
+            @Qualifier("reactiveRedisTemplateForGame")
             ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame,
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")
-            ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSessionIds,
+            ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds,
             GameService gameService
     ) {
         this.userRepository = userRepository;
@@ -84,7 +86,7 @@ public class RoomService {
                     }
 
                     User user = optUser.get();
-                    return reactiveRedisTemplateForRooms.opsForValue().get("room:" + roomId)
+                    return reactiveRedisTemplateForRooms.opsForValue().get(ROOM_PREFIX + roomId)
                             .flatMap(room -> {
 
                                 if (room.getUsers().stream().anyMatch(u -> u.getId() == userId)) {
@@ -141,7 +143,7 @@ public class RoomService {
                                         : reactiveRedisTemplateForRooms.opsForValue().set(ROOM_PREFIX + roomId, room);
 
                                 return updateRoomMono
-                                        .then(reactiveRedisTemplateForSessionIds.delete(userId))
+                                        .then(reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + String.valueOf(userId)))
                                         .thenReturn(RoomServiceResult.success(room));
                             })
                             .switchIfEmpty(Mono.just(RoomServiceResult.failure("Room is not found")));
@@ -163,7 +165,7 @@ public class RoomService {
 
     public Flux<String> scanRoomKeys() {
         ScanOptions options =
-                ScanOptions.scanOptions().match("room:*").count(1000).build();
+                ScanOptions.scanOptions().match(ROOM_PREFIX + "*").count(1000).build();
         return reactiveRedisTemplateForRooms.scan(options);
     }
 
