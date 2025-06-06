@@ -200,7 +200,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId, Integer row, Integer column, Integer isFlipped) {
 
-        return gameService.usePathCardAndProcessNext(gameId, playerId, cardId, row, column, isFlipped)
+        return gameService.processUsePathCard(gameId, playerId, cardId, row, column, isFlipped)
                 .flatMap(usePathCardResultDTO -> {
                     if (!usePathCardResultDTO.isPossibleToPlace()) {
                         return sendMessage(session, "Place-PathCard-Failed", usePathCardResultDTO.fieldResponse());

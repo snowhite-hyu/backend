@@ -378,7 +378,7 @@ public class GameService {
         }
     }
 
-    public Mono<UsePathCardResultDTO> usePathCardAndProcessNext(long gameId, long playerId, int row, int column, int cardId, int isFlipped) {
+    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int row, int column, int cardId, int isFlipped) {
 
         return getGameByGameId(gameId)
                 .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
