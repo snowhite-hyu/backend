@@ -83,10 +83,9 @@ public class GameService {
     public Mono<Integer> joinPlayer(Long gameId, Long playerId) {
 
         return getGameByGameId(gameId)
-                .map(game -> {
+                .flatMap(game -> {
                     int remain = game.joinPlayerAndReturnRemain(playerId);
-                    setGameToRedis(gameId, game);
-                    return remain;
+                    return setGameToRedis(gameId, game).thenReturn(remain);
                 });
     }
 
