@@ -1,13 +1,14 @@
 package com.snowhite.server.domain.session;
 
-import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
-import lombok.Getter;
+import lombok.*;
 
 import java.util.*;
 
-@Getter
+@Data
+@NoArgsConstructor
 public class Game {
 
     private long gameId;
@@ -47,10 +48,12 @@ public class Game {
                 .findFirst();
     }
 
+    @JsonIgnore
     public int getPlayerCount() {
         return players.size();
     }
 
+    @JsonIgnore
     public int getDeckSize() {
         return deck.size();
     }
@@ -272,6 +275,7 @@ public class Game {
         }
     }
 
+    @JsonIgnore
     public void setNewDeck() {
         clearDeck();
         for (int i = 0; i <= 40; i++) {

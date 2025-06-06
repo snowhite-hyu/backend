@@ -213,7 +213,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
                 .flatMap(player -> {
                     Long playerId = player.getPlayerId();
-                    return reactiveRedisTemplateForSessionIds.opsForValue().get(playerId)
+                    return reactiveRedisTemplateForSessionIds.opsForValue().get(GAME_SESSION_PREFIX + playerId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 return sendMessage(sessionToSend, type, payload);
