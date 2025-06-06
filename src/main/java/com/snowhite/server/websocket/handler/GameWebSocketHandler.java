@@ -209,9 +209,10 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseRockfallCard(WebSocketSession session, RockfallCardUseRequest request) {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
-                    Mono<Void> uni = sendMessage(session, "Unicast: Rockfall-Card-Use", response.unicast());
-                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Rockfall-Card-Use", response.broadcast());
-                    return Mono.when(uni, broad);
+                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
+                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
+                    Mono<Void> publicGameInfo = broadcastMessageToGame(request.gameId(), "Changed-Game-Info", response.changedField());
+                    return Mono.when(secretPlayerInfo, publicPlayerInfo, publicGameInfo);
                 })
                 .onErrorResume(e -> {
                     log.error("<rockfall card 처리 중 에러 발생>", e);
@@ -222,9 +223,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseMapCard(WebSocketSession session, MapCardUseRequest request) {
         return gameService.useMapCard(request)
                 .flatMap(response -> {
-                    Mono<Void> uni = sendMessage(session, "Unicast: Map-Card-Use", response.unicast());
-                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Map-Card-Use", response.broadcast());
-                    return Mono.when(uni, broad);
+                    return sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
                 })
                 .onErrorResume(e -> {
                     log.error("<map card 처리 중 에러 발생>", e);
@@ -235,9 +234,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseRepairCard(WebSocketSession session, RepairCardUseRequest request) {
         return gameService.useRepairCard(request)
                 .flatMap(response -> {
-                    Mono<Void> uni = sendMessage(session, "Unicast: Repair-Card-Use", response.unicast());
-                    Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Repair-Card-Use", response.broadcast());
-                    return Mono.when(uni, broad);
+                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
+                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
+                    return Mono.when(secretPlayerInfo, publicPlayerInfo);
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
@@ -248,12 +247,14 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseBrokenCard(WebSocketSession session, BrokenCardUseRequest request) {
         return gameService.useBrokenCard(request)
                 .flatMap(response -> {
-                    Mono<Void> uni = sendMessage(session, "Unicast: Broken-Card-Use", response.unicast());
-                    //Mono<Void> broad = broadcastMessageToGame(request.gameId(), "Broadcast: Broken-Card-Use", response.broadcast());
-                    //return Mono.when(uni, broad);
-                    return uni;
+                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
+                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
+                    return Mono.when(secretPlayerInfo, publicPlayerInfo);
                 })
-                .onErrorResume(e -> sendSimpleMessage(session, "error"));
+                .onErrorResume(e -> {
+                    log.error("<repair card 처리 중 에러 발생>", e);
+                    return sendSimpleMessage(session, "error");
+                });
     }
 
     // 카드 가져오기

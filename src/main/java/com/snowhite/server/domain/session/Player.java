@@ -73,4 +73,6 @@ public class Player {
         this.hand.remove(Integer.valueOf(cardId));
     }
     public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
+
+    public int getHandSize() { return this.hand.size(); }
 }
