@@ -90,11 +90,13 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         return redisTemplateForSessionIds.opsForValue().set(userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
+                .onErrorResume(throwable -> sendMessage(session, "error", "Failed to save session").thenReturn(true))
                 .then(
                         session.receive()
                                 .doFinally(signalType -> sessionMap.remove(session.getId()))
                                 .map(WebSocketMessage::getPayloadAsText)
                                 .flatMap(processMessage(session, token))
+                                .onErrorResume(throwable -> sendMessage(session, "error", throwable.getMessage()).then())
                                 .then()
                 );
     }
@@ -120,7 +122,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     {
                         long userId = jwtProvider.extractUserIdFromToken(token);
                         Long roomId = Long.parseLong(node.get("roomId").asText());
-                        return handleJoinRoom(session, userId, roomId);
+                        return handleJoinRoom(session, userId, roomId)
+                                .onErrorResume(throwable -> sendMessage(session, "error", throwable.getMessage()).then());
                     }
 
                     case "quit":
@@ -138,12 +141,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
                     default:
                     {
-                        return sendMessage(session, "error", "Unsupported action: " + action);
+                        return sendMessage(session, "error", "unsupported action: " + action);
                     }
                 }
 
             } catch (Exception e) {
-                return sendMessage(session, "error", "Invalid websocket frame: " + e.getMessage());
+                return sendMessage(session, "error", "Invalid Websocket frame");
             }
         };
     }
@@ -160,7 +163,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return sendMessage(session, "error", "User not found");
+                        return sendMessage(session, "error", "User is not found");
                     }
 
                     User user = optionalUser.get();
@@ -183,20 +186,21 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return sendMessage(session, "error", "User not found");
+                        return sendMessage(session, "error", "User is not found");
                     }
+
 
                     User user = optionalUser.get();
 
                     return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
+                            .switchIfEmpty(
+                                    Mono.defer(() -> sendMessage(session, "error", "Room is not found").then(Mono.empty()))
+                            )
                             .flatMap(room -> {
-                                if (room == null) {
-                                    return sendMessage(session, "error", "Room not found");
-                                }
 
                                 List<User> users = room.getUsers();
                                 if (users.stream().anyMatch(u -> u.getId() == userId)) {
-                                    return sendMessage(session, "error", "User already in room");
+                                    return sendMessage(session, "error", "User is already in room");
                                 }
 
                                 users.add(user);
@@ -216,30 +220,30 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optionalUser -> {
                     if (optionalUser.isEmpty()) {
-                        return sendMessage(session, "error", "User not found");
+                        return sendMessage(session, "error", "User is not found");
                     }
 
                     User user = optionalUser.get();
 
                     return redisTemplateForRooms.opsForValue().get(ROOM_PREFIX + String.valueOf(roomId))
+                            .switchIfEmpty(
+                                    Mono.defer(() -> sendMessage(session, "error", "Room is not found").then(Mono.empty()))
+                            )
                             .flatMap(room -> {
-                                if (room == null) {
-                                    return sendMessage(session, "error", "Room not found");
-                                }
 
                                 List<User> users = room.getUsers();
 
                                 boolean isInRoom = (users.stream().anyMatch(u -> u.getId() == userId));
 
                                 if (!isInRoom) {
-                                    return sendMessage(session, "error", "User not in room");
+                                    return sendMessage(session, "error", "User is not in room");
                                 }
 
                                 boolean isMasterPlayer = userId == room.getMasterPlayer().getId();
 
                                 if (isMasterPlayer && users.size() > 1) {
                                     return sendMessage(
-                                            session, "error", "Master player can not quit room while other users remain"
+                                            session, "error", "Master player can not quit room while other users remain in room"
                                     );
                                 }
 
