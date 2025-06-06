@@ -396,21 +396,24 @@ public class GameService {
 
                             // 라운드가 끝났으면 역할 공개 필요
                             if (isRoundFinished) {
-                                return getAllSecretPlayerInfo(game)
-                                        .map(secretPlayerResponseList -> UsePathCardResultDTO.forRoundFinishedResult(
-                                                fieldResponse,
-                                                publicPlayerResponse,
-                                                secretPlayerResponseList
-                                        ));
+                                return setGameToRedis(gameId, game)
+                                        .then(getAllSecretPlayerInfo(game)
+                                                .map(secretPlayerResponseList -> UsePathCardResultDTO.forRoundFinishedResult(
+                                                        fieldResponse,
+                                                        publicPlayerResponse,
+                                                        secretPlayerResponseList
+                                                ))
+                                        );
                             }
 
                             // 라운드가 끝나지 않았으면 역할 공개는 불필요
-                            return Mono.just(UsePathCardResultDTO.forNormalResult(
-                                    fieldResponse,
-                                    publicPlayerResponse
-                            ));
+                            return setGameToRedis(gameId, game)
+                                    .thenReturn(UsePathCardResultDTO.forNormalResult(
+                                            fieldResponse,
+                                            publicPlayerResponse
+                                    ));
                         })
-        );
+                );
     }
 
     public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {
