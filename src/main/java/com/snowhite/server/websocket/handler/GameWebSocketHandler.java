@@ -25,13 +25,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GameWebSocketHandler implements WebSocketHandler {
 
+    private static final String GAME_SESSION_PREFIX = "game-session:";
+
     private final GameService gameService;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
 
     // 세션 저장 후 처리
@@ -42,12 +44,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
         String token = jwtProvider.extractTokenFromURI(uri);
         Long userId = jwtProvider.extractUserIdFromToken(token);
 
-        return reactiveRedisTemplateForSession.opsForValue().set(userId, session.getId())
+        return reactiveRedisTemplateForSessionIds.opsForValue().set(GAME_SESSION_PREFIX + userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
                 .then(session.receive()
                         .doFinally(signalType -> {
                             sessionMap.remove(session.getId());
-                            reactiveRedisTemplateForSession.delete(userId).subscribe();
+                            reactiveRedisTemplateForSessionIds.delete(GAME_SESSION_PREFIX + userId).subscribe();
                         })
                         .map(WebSocketMessage::getPayloadAsText)
                         .flatMap(message -> handleMessage(session, message, userId))
@@ -229,7 +231,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
                 .flatMap(player -> {
                     Long playerId = player.getPlayerId();
-                    return reactiveRedisTemplateForSession.opsForValue().get(playerId)
+                    return reactiveRedisTemplateForSessionIds.opsForValue().get(playerId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 return sendMessage(sessionToSend, type, payload);
