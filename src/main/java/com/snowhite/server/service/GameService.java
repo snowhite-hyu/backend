@@ -7,8 +7,8 @@ import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
-import com.snowhite.server.websocket.dto.response.GameResponse;
-import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.UsePathCardResultDTO;
+import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundResponse;
@@ -16,7 +16,6 @@ import com.snowhite.server.payload.code.status.WsErrorStatus;
 import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.payload.exception.WebSocketException;
 import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
-import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -379,10 +378,39 @@ public class GameService {
         }
     }
 
-    public Mono<Game> placeCard(Game game, int row, int column, int cardId, int isFlipped) {
-        game.placeCard(row, column, cardId, isFlipped);
-        setGameToRedis(game.getGameId(), game);
-        return Mono.just(game);
+    public Mono<UsePathCardResultDTO> usePathCardAndProcessNext(long gameId, long playerId, int row, int column, int cardId, int isFlipped) {
+
+        return getGameByGameId(gameId)
+                .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
+                        .flatMap(isPossible -> {
+                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
+
+                            // 카드를 놓을 수 없으면 바로 리턴
+                            if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
+
+                            game.placeCard(row, column, cardId, isFlipped);
+                            game.drawAndGiveCardToPlayer(playerId);
+                            boolean isRoundFinished = game.nextTurnAndReturnRoundFinished();
+                            boolean isGameFinished = false;
+                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+
+                            // 라운드가 끝났으면 역할 공개 필요
+                            if (isRoundFinished) {
+                                return getAllSecretPlayerInfo(game)
+                                        .map(secretPlayerResponseList -> UsePathCardResultDTO.forRoundFinishedResult(
+                                                fieldResponse,
+                                                publicPlayerResponse,
+                                                secretPlayerResponseList
+                                        ));
+                            }
+
+                            // 라운드가 끝나지 않았으면 역할 공개는 불필요
+                            return Mono.just(UsePathCardResultDTO.forNormalResult(
+                                    fieldResponse,
+                                    publicPlayerResponse
+                            ));
+                        })
+        );
     }
 
     public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {

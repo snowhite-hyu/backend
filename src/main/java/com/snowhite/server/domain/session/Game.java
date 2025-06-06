@@ -93,8 +93,8 @@ public class Game {
     }
 
     public void drawAndGiveCardToPlayer(long playerId) {
-        int cardId = drawCard().get();
-        giveCardToPlayer(cardId, playerId);
+        Optional<Integer> cardIdOptional = drawCard();
+        cardIdOptional.ifPresent(cardId -> giveCardToPlayer(cardId, playerId));
     }
 
     public Optional<Integer> drawCard() {
@@ -149,7 +149,9 @@ public class Game {
         return currentTurnPlayerId;
     }
 
-    private boolean nextTurnAndReturnRoundFinished() {
+
+    //TODO: 핸드가 없으면 다음으로 넘어가도록
+    public boolean nextTurnAndReturnRoundFinished() {
         if (checkDeckAndHandsEmpty()) {
             return true;
         }

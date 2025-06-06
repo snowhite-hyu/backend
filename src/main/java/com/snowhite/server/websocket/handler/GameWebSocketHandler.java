@@ -19,6 +19,7 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -105,7 +106,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     int column = payload.get("column").asInt();
                     int isFlipped = payload.get("isFlipped").asInt();
 
-                    return handleUsePathCard(session, gameId, cardId, row, column, isFlipped);
+                    return handleUsePathCard(session, gameId, playerId, cardId, row, column, isFlipped);
                 }
 
                 case "get-card": {
@@ -197,21 +198,23 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Integer cardId, Integer row, Integer column, Integer isFlipped) {
+    public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId, Integer row, Integer column, Integer isFlipped) {
 
-        return gameService.getGameByGameId(gameId)
-                .flatMap(game ->
-                        gameService.isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
-                                .flatMap(possible -> {
-                                    if (!possible) {
-                                        FieldResponse result = FieldResponse.of(cardId, row, column, isFlipped);
-                                        return sendMessage(session, "Place-PathCard-Failed", result);
-                                    }
-                                    return gameService.placeCard(game, cardId, row, column, isFlipped)
-                                            .thenReturn(FieldResponse.of(cardId, row, column, isFlipped))
-                                            .flatMap(result -> broadcastMessageToGame(gameId, "Field-Changed", result));
-                                })
-                );
+        return gameService.usePathCardAndProcessNext(gameId, playerId, cardId, row, column, isFlipped)
+                .flatMap(usePathCardResultDTO -> {
+                    if (!usePathCardResultDTO.isPossibleToPlace()) {
+                        return sendMessage(session, "Place-PathCard-Failed", usePathCardResultDTO.fieldResponse());
+                    }
+                    if (usePathCardResultDTO.isRoundFinished()) {
+                        return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
+                                .then(Mono.delay(Duration.ofSeconds(5)))
+                                // 역할 공개
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", usePathCardResultDTO.secretPlayerResponseList()));
+                    }
+                    return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()));
+                });
     }
 
     // 카드 가져오기
