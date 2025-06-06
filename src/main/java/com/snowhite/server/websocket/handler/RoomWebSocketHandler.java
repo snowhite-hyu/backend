@@ -311,7 +311,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(room -> Flux.fromIterable(room.getUsers()))
                 .flatMap(user -> {
                     Long userId = user.getId();
-                    return redisTemplateForRooms.opsForValue().get(userId)
+                    return redisTemplateForSessionIds.opsForValue().get(userId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 return sendMessage(sessionToSend, type, payload);
