@@ -10,6 +10,7 @@ import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.RoomService;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RoomWebSocketHandler implements WebSocketHandler {
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
@@ -77,7 +79,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         long userId = jwtProvider.extractUserIdFromToken(token);
 
-        return redisTemplateForSessionIds.opsForValue().set(userId, session.getId())
+        return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
                 .onErrorResume(throwable -> sendMessage(session, "error", "Failed to save session").thenReturn(true))
                 .then(
@@ -153,6 +155,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     } else {
                         return sendMessage(session, "error", result.getErrorMessage());
                     }
+       
                 });
     }
 
@@ -191,7 +194,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         List<Mono<Void>> broadcasts = room.getUsers().stream()
                 .filter(user -> user.getId() != userId)
-                .map(user -> redisTemplateForSessionIds.opsForValue().get(user.getId())
+                .map(user -> reactiveRedisTemplateForSessionIds.opsForValue().get(ROOM_SESSION_PREFIX + user.getId())
                         .flatMap(sessionId -> {
                             WebSocketSession userSession = sessionMap.get(sessionId);
                             if (userSession != null && userSession.isOpen()) {
@@ -226,7 +229,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(room -> Flux.fromIterable(room.getUsers()))
                 .flatMap(user -> {
                     Long userId = user.getId();
-                    return redisTemplateForSessionIds.opsForValue().get(userId)
+                    return reactiveRedisTemplateForSessionIds.opsForValue().get(ROOM_SESSION_PREFIX + userId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 return sendMessage(sessionToSend, type, payload);
