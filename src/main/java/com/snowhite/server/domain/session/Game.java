@@ -396,6 +396,7 @@ public class Game {
                 .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
                 .toList();
     }
+
     // TODO: field 확장 기능 추가 후 구현
     public boolean isPossibleLocationToGetCard(int row, int col) {
         return true;

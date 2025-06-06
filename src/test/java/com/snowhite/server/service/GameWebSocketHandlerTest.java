@@ -97,7 +97,7 @@ class GameWebSocketHandlerTest {
         when(reactiveRedisTemplateForGame.opsForValue()).thenReturn(valueOperationsForGame);
         when(reactiveRedisTemplateForCard.opsForValue()).thenReturn(valueOperationsForCard);
 
-        gameService = new GameService(reactiveRedisTemplateForGame, reactiveRedisTemplateForCard);
+        gameService = new GameService(reactiveRedisTemplateForGame, reactiveRedisTemplateForCard, null);
 
         List<Player> players = List.of(player1, player2, player3, player4, player5);
         game = new Game(GAME_ID, players, TURN_TIME);

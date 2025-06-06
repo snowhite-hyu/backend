@@ -25,7 +25,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +37,8 @@ public class GameService {
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
+
+    private final CardService cardService;
 
     // 카드 가져오기
     public Mono<Player> getCard(Long gameId, Long playerId) {
@@ -377,5 +378,74 @@ public class GameService {
         } catch (Exception e) {
             return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
         }
+    }
+
+    public Mono<Game> placeCard(Game game, int row, int column, int cardId, int isFlipped) {
+        game.placeCard(row, column, cardId, isFlipped);
+        setGameToRedis(game.getGameId(), game);
+        return Mono.just(game);
+    }
+
+    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {
+
+        Integer[][][] field = game.getField();
+
+        return cardService.findCardByCardId(cardIdToPlace)
+                .cast(PathCard.class)
+                .flatMap(cardToPlace -> {
+                    Mono<Boolean> upperCheck = Mono.just(true);
+                    Mono<Boolean> lowerCheck = Mono.just(true);
+                    Mono<Boolean> leftCheck = Mono.just(true);
+                    Mono<Boolean> rightCheck = Mono.just(true);
+
+                    // 위쪽 검사
+                    if (row > 0 && field[row - 1][column][0] != -1) { // 놓을 자리가 맨 위가 아니고 위에 카드가 있는 경우
+                        int upperCardId = field[row - 1][column][0];
+                        int upperCardFlipped = field[row - 1][column][1];
+                        upperCheck = cardService.findCardByCardId(upperCardId)
+                                .cast(PathCard.class)
+                                .map(upperCard ->
+                                        cardToPlace.isUpperOpened(flipped) == upperCard.isLowerOpened(upperCardFlipped)
+                                );
+                    }
+
+                    // 아래쪽 검사
+                    if (row < field.length - 1 && field[row + 1][column][0] != -1) { // 놓을 자리가 맨 아래가 아니고 아래에 카드가 있는 경우
+                        int lowerCardId = field[row + 1][column][0];
+                        int lowerCardFlipped = field[row + 1][column][1];
+                        lowerCheck = cardService.findCardByCardId(lowerCardId)
+                                .cast(PathCard.class)
+                                .map(lowerCard ->
+                                        cardToPlace.isLowerOpened(flipped) == lowerCard.isUpperOpened(lowerCardFlipped)
+                                );
+                    }
+
+                    // 왼쪽 카드 검사
+                    if (column > 0 && field[row][column - 1][0] != -1) { // 놓을 자리가 맨 왼쪽이 아니고 왼쪽에 카드가 있는 경우
+                        int leftCardId = field[row][column - 1][0];
+                        int leftCardFlipped = field[row][column - 1][1];
+                        leftCheck = cardService.findCardByCardId(leftCardId)
+                                .cast(PathCard.class)
+                                .map(leftCard ->
+                                        cardToPlace.isLeftOpened(flipped) == leftCard.isRightOpened(leftCardFlipped)
+                                );
+                    }
+
+                    // 오른쪽 카드 검사
+                    if (column < field[0].length - 1 && field[row][column + 1][0] != -1) { // 놓을 자리가 맨 오른쪽이 아니고 오른쪽에 카드가 있는 경우
+                        int rightCardId = field[row][column + 1][0];
+                        int rightCardFlipped = field[row][column + 1][1];
+                        rightCheck = cardService.findCardByCardId(rightCardId)
+                                .cast(PathCard.class)
+                                .map(rightCard ->
+                                        cardToPlace.isRightOpened(flipped) == rightCard.isLeftOpened(rightCardFlipped)
+                                );
+                    }
+
+                    // 다 모아서 전부 true인 경우 true
+                    return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
+                            .map(results -> results.getT1() && results.getT2() && results.getT3() && results.getT4());
+
+                });
     }
 }

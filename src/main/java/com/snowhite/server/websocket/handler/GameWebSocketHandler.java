@@ -3,17 +3,11 @@ package com.snowhite.server.websocket.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowhite.server.domain.session.Game;
-import com.snowhite.server.repository.CardRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.GameService;
-import com.snowhite.server.websocket.dto.response.GameResponse;
+import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.websocket.dto.request.ActionCardUseRequest;
-import com.snowhite.server.websocket.dto.response.ActionCardUsedResponse;
-import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
-import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
-import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,16 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GameWebSocketHandler implements WebSocketHandler {
 
-    private static final String GAME_PREFIX = "game:";
-
-    private final CardRepository cardRepository;
     private final GameService gameService;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
 
 
@@ -60,13 +50,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
                             reactiveRedisTemplateForSession.delete(userId).subscribe();
                         })
                         .map(WebSocketMessage::getPayloadAsText)
-                        .flatMap(message -> handleMessage(session, message))
+                        .flatMap(message -> handleMessage(session, message, userId))
                         .then()
                 );
     }
 
     // type에 따라 요청 처리
-    public Mono<Void> handleMessage(WebSocketSession session, String message) {
+    public Mono<Void> handleMessage(WebSocketSession session, String message, Long playerId) {
         try {
             JsonNode root = objectMapper.readTree(message);
             String type = root.get("type").asText();
@@ -75,7 +65,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
             switch (type) {
                 case "join-game": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleJoinGame(session, gameId, playerId);
                 }
 
@@ -91,7 +80,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "get-player-info": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
                 case "use-action-card" : {
@@ -108,15 +96,23 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return handleUseActionCard(session, gameId, request);
                 }
 
+                case "use-path-card": {
+                    long gameId = payload.get("gameId").asLong();
+                    int cardId = payload.get("cardId").asInt();
+                    int row = payload.get("row").asInt();
+                    int column = payload.get("column").asInt();
+                    int isFlipped = payload.get("isFlipped").asInt();
+
+                    return handleUsePathCard(session, gameId, cardId, row, column, isFlipped);
+                }
+
                 case "get-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     return handleGetCard(session, gameId, playerId);
                 }
 
                 case "drop-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     int cardId = Integer.parseInt(payload.get("cardId").asText());
                     return handleDropCard(session, gameId, playerId, cardId);
                 }
@@ -197,6 +193,23 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     Mono<Void> broad = broadcastMessageToGame(gameId, "[Broadcast]: Action-Card-Use", broadcastResponse);
                     return Mono.when(uni, broad);
                 });
+    }
+
+    public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Integer cardId, Integer row, Integer column, Integer isFlipped) {
+
+        return gameService.getGameByGameId(gameId)
+                .flatMap(game ->
+                        gameService.isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
+                                .flatMap(possible -> {
+                                    if (!possible) {
+                                        FieldResponse result = FieldResponse.of(cardId, row, column, isFlipped);
+                                        return sendMessage(session, "Place-PathCard-Failed", result);
+                                    }
+                                    return gameService.placeCard(game, cardId, row, column, isFlipped)
+                                            .thenReturn(FieldResponse.of(cardId, row, column, isFlipped))
+                                            .flatMap(result -> broadcastMessageToGame(gameId, "Field-Changed", result));
+                                })
+                );
     }
 
     // 카드 가져오기
