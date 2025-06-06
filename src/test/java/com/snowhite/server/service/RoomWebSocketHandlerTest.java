@@ -158,7 +158,6 @@ class RoomWebSocketHandlerTest {
     @Test
     void testErrorWhenInvalidPayload() throws Exception {
         String uri = "ws://localhost:" + port + "/ws/room?token=" + jwtToken;
-        Long roomId = roomIdGenerator.incrementAndGet();
 
         client.execute(
                 URI.create(uri),
@@ -228,6 +227,7 @@ class RoomWebSocketHandlerTest {
                         ObjectNode payload = objectMapper.createObjectNode();
                         payload.put("capacity", 4);
                         payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
 
                         ObjectNode request = objectMapper.createObjectNode();
                         request.put("type", "create");
