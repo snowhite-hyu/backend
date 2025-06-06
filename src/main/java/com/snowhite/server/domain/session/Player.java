@@ -2,18 +2,21 @@ package com.snowhite.server.domain.session;
 
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
+import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-@Getter
+@Data
+@NoArgsConstructor
 public class Player {
-    private final long playerId;
-    private final String playerName;
+    private long playerId;
+    private String playerName;
     private PlayerRole playerRole;
-    private final List<Integer> hand;
+    private List<Integer> hand;
     private EnumSet<PlayerState> state;
     private int gold;
 
