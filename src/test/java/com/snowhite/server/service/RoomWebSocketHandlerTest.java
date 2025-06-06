@@ -156,6 +156,57 @@ class RoomWebSocketHandlerTest {
     }
 
     @Test
+    void testErrorWhenInvalidPayload() throws Exception {
+        String uri = "ws://localhost:" + port + "/ws/room?token=" + jwtToken;
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        client.execute(
+                URI.create(uri),
+                session -> {
+
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("capacity", 4);
+                    payload.put("turnTime", 30);
+
+                    ObjectNode request = objectMapper.createObjectNode();
+                    request.put("type", "create");
+                    request.set("payload", payload);
+
+                    session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
+
+                    return session.receive()
+                            .map(WebSocketMessage::getPayloadAsText)
+                            .doOnNext(message -> {
+
+                                try {
+
+                                    System.out.println("Received: " + message);
+
+                                    JsonNode root = objectMapper.readTree(message);
+                                    String type = root.get("type").asText();
+
+                                    Assertions.assertEquals("error", root.get("type").asText());
+
+                                    String errorMsg = root.get("payload").asText();
+                                    Assertions.assertTrue(
+                                            errorMsg.contains("Invalid Websocket frame"),
+                                            "Actual error: " + errorMsg
+                                    );
+
+
+                                } catch (JsonProcessingException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            })
+                            .take(1)
+                            .then();
+                }
+        ).block();
+
+    }
+
+    @Test
     void testErrorWhenRoomNotExist() throws Exception {
         Long roomId = roomIdGenerator.incrementAndGet();
 
