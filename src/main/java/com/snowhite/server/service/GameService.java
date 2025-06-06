@@ -123,11 +123,7 @@ public class GameService {
     }
 
     public Mono<Game> getGameByGameId(Long gameId) {
-        System.out.println("1111");
-        return reactiveRedisTemplateForGame.opsForValue().get("game:1")
-                .doOnNext(game -> System.out.println(">>> Game found: " + game))
-                .switchIfEmpty(Mono.fromRunnable(() -> System.out.println(">>> No game found")));
-//        return reactiveRedisTemplateForGame.opsForValue().get("game:1");
+        return reactiveRedisTemplateForGame.opsForValue().get(GAME_PREFIX + gameId);
     }
 
     public Mono<Boolean> setGameToRedis(Long gameId, Game game) {
