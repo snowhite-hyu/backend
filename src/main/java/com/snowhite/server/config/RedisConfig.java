@@ -32,7 +32,7 @@ public class RedisConfig {
         return new LettuceConnectionFactory(host, port);
     }
 
-    @Bean(name="reactiveRedisTemplateForRooms")
+    @Bean
     public ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms(
             ReactiveRedisConnectionFactory factory,
             ObjectMapper objectMapper) {
@@ -50,13 +50,25 @@ public class RedisConfig {
         return new ReactiveRedisTemplate<>(factory, context);
     }
 
-    @Bean(name="reactiveRedisTemplateForSessionIds")
+    @Bean
     public ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession(
             ReactiveRedisConnectionFactory factory) {
         RedisSerializationContext<Long, String> context = RedisSerializationContext
                 .<Long, String> newSerializationContext(new GenericToStringSerializer<>(Long.class))
                 .value(new StringRedisSerializer())
                 .build();
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds(
+            ReactiveRedisConnectionFactory factory) {
+
+        RedisSerializationContext<String, String> context = RedisSerializationContext
+                .<String, String>newSerializationContext(new StringRedisSerializer())
+                .value(new StringRedisSerializer())
+                .build();
+
         return new ReactiveRedisTemplate<>(factory, context);
     }
 
