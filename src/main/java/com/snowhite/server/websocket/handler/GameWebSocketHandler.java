@@ -60,13 +60,13 @@ public class GameWebSocketHandler implements WebSocketHandler {
                             reactiveRedisTemplateForSession.delete(userId).subscribe();
                         })
                         .map(WebSocketMessage::getPayloadAsText)
-                        .flatMap(message -> handleMessage(session, message))
+                        .flatMap(message -> handleMessage(session, message, userId))
                         .then()
                 );
     }
 
     // type에 따라 요청 처리
-    public Mono<Void> handleMessage(WebSocketSession session, String message) {
+    public Mono<Void> handleMessage(WebSocketSession session, String message, Long playerId) {
         try {
             JsonNode root = objectMapper.readTree(message);
             String type = root.get("type").asText();
@@ -75,7 +75,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
             switch (type) {
                 case "join-game": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleJoinGame(session, gameId, playerId);
                 }
 
@@ -91,7 +90,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "get-player-info": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
                 case "use-action-card" : {
@@ -110,13 +108,11 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "get-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     return handleGetCard(session, gameId, playerId);
                 }
 
                 case "drop-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     int cardId = Integer.parseInt(payload.get("cardId").asText());
                     return handleDropCard(session, gameId, playerId, cardId);
                 }
