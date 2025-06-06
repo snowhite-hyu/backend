@@ -112,8 +112,9 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                         long userId = jwtProvider.extractUserIdFromToken(token);
                         int capacity = node.get("capacity").asInt();
                         int turnTime = node.get("turnTime").asInt();
+                        String roomName = node.get("roomName").asText();
 
-                        return handleCreateRoom(session, userId, capacity, turnTime);
+                        return handleCreateRoom(session, userId, capacity, turnTime, roomName);
                     }
 
                     case "join":
@@ -154,7 +155,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .flatMap(result -> broadcastMessageToRoom(roomId, "Game-Started", result));
     }
 
-    private Mono<Void> handleCreateRoom(WebSocketSession session, long userId, int capacity, int turnTime) {
+    private Mono<Void> handleCreateRoom(WebSocketSession session, long userId, int capacity, int turnTime, String roomName) {
 
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
@@ -168,7 +169,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     List<User> users = new ArrayList<>();
                     users.add(user);
 
-                    Room room = new Room(roomId, user, users, capacity, turnTime, false);
+                    Room room = new Room(roomId, roomName, user, users, capacity, turnTime, false);
 
                     Mono<Boolean> saveRoom = redisTemplateForRooms.
                             opsForValue().set(ROOM_PREFIX + String.valueOf(roomId), room);
@@ -311,7 +312,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(room -> Flux.fromIterable(room.getUsers()))
                 .flatMap(user -> {
                     Long userId = user.getId();
-                    return redisTemplateForRooms.opsForValue().get(userId)
+                    return redisTemplateForSessionIds.opsForValue().get(userId)
                             .flatMap(sessionId -> {
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);
                                 return sendMessage(sessionToSend, type, payload);
