@@ -55,8 +55,8 @@ class LobbyServiceTest {
         User user4 = new User();
         user4.setId(4);
 
-        Room room1 = new Room(roomId1, user1, List.of(user1, user2), 10, 30, false);
-        Room room2 = new Room(roomId2, user3, List.of(user3, user4), 20, 30, true);
+        Room room1 = new Room(roomId1, "testRoom1", user1, List.of(user1, user2), 10, 30, false);
+        Room room2 = new Room(roomId2, "testRoom2", user3, List.of(user3, user4), 20, 30, true);
 
         redisTemplateForRooms.opsForValue().set(ROOM_PREFIX + String.valueOf(roomId1), room1).block();
         redisTemplateForRooms.opsForValue().set(ROOM_PREFIX + String.valueOf(roomId2), room2).block();
@@ -76,7 +76,7 @@ class LobbyServiceTest {
     @Test
      void getRooms_returnsRoomList() {
 
-        webTestClient.get().uri("/rooms")
+        webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
@@ -124,7 +124,7 @@ class LobbyServiceTest {
                 .flatMap(redisTemplateForRooms::delete)
                 .blockLast();
 
-        webTestClient.get().uri("/rooms")
+        webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()

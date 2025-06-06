@@ -2,17 +2,16 @@ package com.snowhite.server.domain.session;
 
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-@Getter
+@Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Player {
     private long playerId;
     private String playerName;

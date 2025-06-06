@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GameWebSocketHandler implements WebSocketHandler {
 
     private static final String GAME_PREFIX = "game:";
+    private static final String GAME_SESSION_PREFIX = "game-session:";
 
     private final CardRepository cardRepository;
     private final GameService gameService;
@@ -46,7 +47,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
     private ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
-    private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
 
@@ -58,39 +59,25 @@ public class GameWebSocketHandler implements WebSocketHandler {
         String token = jwtProvider.extractTokenFromURI(uri);
         Long userId = jwtProvider.extractUserIdFromToken(token);
 
-        return reactiveRedisTemplateForSession.opsForValue().set(userId, session.getId())
+        return reactiveRedisTemplateForSessionIds.opsForValue().set(GAME_SESSION_PREFIX + userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
                 .then(session.receive()
                         .doFinally(signalType -> {
                             sessionMap.remove(session.getId());
-                            reactiveRedisTemplateForSession.delete(userId).subscribe();
+                            reactiveRedisTemplateForSessionIds.delete(GAME_SESSION_PREFIX + userId).subscribe();
                         })
                         .map(WebSocketMessage::getPayloadAsText)
-                        .flatMap(message -> handleMessage(session, message))
+                        .flatMap(message -> handleMessage(session, message, userId))
                         .then()
                 );
     }
-    @Autowired
-    public GameWebSocketHandler(
-            CardRepository cardRepository, JwtProvider jwtProvider,
-            ReactiveRedisTemplate<Long, String> redisSession,
-            ReactiveRedisTemplate<String, Game> redisGame,
-            GameService gameService,
-            ObjectMapper objectMapper
-    ) {
-        this.cardRepository = cardRepository;
-        this.jwtProvider = jwtProvider;
-        this.reactiveRedisTemplateForSession = redisSession;
-        this.reactiveRedisTemplateForGame = redisGame;
-        this.gameService = gameService;
-        this.objectMapper = objectMapper;
-    }
+
     public Map<String, WebSocketSession> getSessionMap() {
         return sessionMap;
     }
 
     // type에 따라 요청 처리
-    public Mono<Void> handleMessage(WebSocketSession session, String message) {
+    public Mono<Void> handleMessage(WebSocketSession session, String message, Long playerId) {
         try {
             JsonNode root = objectMapper.readTree(message);
             String type = root.get("type").asText();
@@ -99,7 +86,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
             switch (type) {
                 case "join-game": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleJoinGame(session, gameId, playerId);
                 }
 
@@ -115,7 +101,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "get-player-info": {
                     long gameId = payload.get("gameId").asLong();
-                    long playerId = payload.get("playerId").asLong();
                     return handleGetPlayerInfo(session, gameId, playerId);
                 }
                 case "use-rockfall-card" : {
@@ -160,13 +145,11 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                 case "get-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     return handleGetCard(session, gameId, playerId);
                 }
 
                 case "drop-card": {
                     long gameId = Long.parseLong(payload.get("gameId").asText());
-                    long playerId = Long.parseLong(payload.get("playerId").asText());
                     int cardId = Integer.parseInt(payload.get("cardId").asText());
                     return handleDropCard(session, gameId, playerId, cardId);
                 }
@@ -293,7 +276,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMapMany(game -> Flux.fromIterable(game.getPlayers()))
                 .flatMap(player -> {
                     Long playerId = player.getPlayerId();
-                    return reactiveRedisTemplateForSession.opsForValue().get(playerId)
+                    return reactiveRedisTemplateForSessionIds.opsForValue().get(GAME_SESSION_PREFIX + playerId)
                             .flatMap(sessionId -> {
                                 if(sessionId == null) return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                                 WebSocketSession sessionToSend = sessionMap.get(sessionId);

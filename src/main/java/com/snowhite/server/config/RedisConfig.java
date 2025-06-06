@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Room;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
@@ -31,7 +32,7 @@ public class RedisConfig {
         return new LettuceConnectionFactory(host, port);
     }
 
-    @Bean(name="reactiveRedisTemplateForRooms")
+    @Bean
     public ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms(
             ReactiveRedisConnectionFactory factory,
             ObjectMapper objectMapper) {
@@ -49,7 +50,7 @@ public class RedisConfig {
         return new ReactiveRedisTemplate<>(factory, context);
     }
 
-    @Bean(name="reactiveRedisTemplateForSessionIds")
+    @Bean
     public ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSession(
             ReactiveRedisConnectionFactory factory) {
         RedisSerializationContext<Long, String> context = RedisSerializationContext
@@ -60,26 +61,42 @@ public class RedisConfig {
     }
 
     @Bean
-    public ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame(
-            ReactiveRedisConnectionFactory factory
-    ) {
+    public ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds(
+            ReactiveRedisConnectionFactory factory) {
 
-        Jackson2JsonRedisSerializer<Game> serializer = new Jackson2JsonRedisSerializer<>(Game.class);
+        RedisSerializationContext<String, String> context = RedisSerializationContext
+                .<String, String>newSerializationContext(new StringRedisSerializer())
+                .value(new StringRedisSerializer())
+                .build();
+
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame(
+            ReactiveRedisConnectionFactory factory,
+            ObjectMapper objectMapper) {
+
+        Jackson2JsonRedisSerializer<Game> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, Game.class);
 
         RedisSerializationContext.RedisSerializationContextBuilder<String, Game> builder =
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
 
-        RedisSerializationContext<String, Game> context = builder.value(serializer).build();
+        RedisSerializationContext<String, Game> context = builder
+                .value(serializer)
+                .build();
 
         return new ReactiveRedisTemplate<>(factory, context);
     }
 
     @Bean
     public ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard(
-            ReactiveRedisConnectionFactory factory
+            ReactiveRedisConnectionFactory factory,
+            ObjectMapper objectMapper
     ) {
 
-        Jackson2JsonRedisSerializer<Card> valueSerializer = new Jackson2JsonRedisSerializer<>(Card.class);
+        Jackson2JsonRedisSerializer<Card> valueSerializer = new Jackson2JsonRedisSerializer<>(objectMapper, Card.class);
+
         RedisSerializationContext.RedisSerializationContextBuilder<String, Card> builder =
                 RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
 

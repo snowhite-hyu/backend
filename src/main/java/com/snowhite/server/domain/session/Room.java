@@ -11,14 +11,16 @@ import java.util.Objects;
 public class Room {
 
     private Long roomId;
+    private String roomName;
     private User masterPlayer;
     private List<User> users;
     private int capacity;
     private int turnTime;
     private boolean isPlaying;
 
-    public Room(Long roomId, User masterPlayer, List<User> users, int capacity, int turnTime, boolean isPlaying) {
+    public Room(Long roomId, String roomName, User masterPlayer, List<User> users, int capacity, int turnTime, boolean isPlaying) {
         this.roomId = roomId;
+        this.roomName = roomName;
         this.masterPlayer = masterPlayer;
         this.users = users;
         this.capacity = capacity;
@@ -32,6 +34,7 @@ public class Room {
         if (o == null || getClass() != o.getClass()) return false;
         Room room = (Room) o;
         return roomId.equals(room.roomId) &&
+                roomName.equals(room.roomName) &&
                 capacity == room.capacity &&
                 turnTime == room.turnTime &&
                 isPlaying == room.isPlaying;
