@@ -97,6 +97,7 @@ class RoomWebSocketHandlerTest {
                     ObjectNode payload = objectMapper.createObjectNode();
                     payload.put("capacity", 4);
                     payload.put("turnTime", 30);
+                    payload.put("roomName", "testRoom");
 
                     ObjectNode request = objectMapper.createObjectNode();
                     request.put("type", "create");
@@ -122,6 +123,7 @@ class RoomWebSocketHandlerTest {
 
 
                                     Long getRoomId = payloadNode.get("roomId").asLong();
+                                    String roomName = payloadNode.get("roomName").asText();
                                     JsonNode masterPlayer = payloadNode.get("masterPlayer");
                                     JsonNode users = payloadNode.get("users");
                                     int capacity = payloadNode.get("capacity").asInt();
@@ -129,6 +131,7 @@ class RoomWebSocketHandlerTest {
                                     boolean isPlaying = payloadNode.get("playing").asBoolean();
 
                                     Assertions.assertEquals(roomId, getRoomId);
+                                    Assertions.assertEquals("testRoom", roomName);
                                     Assertions.assertEquals(4, capacity);
                                     Assertions.assertEquals(30, turnTime);
                                     Assertions.assertFalse(isPlaying);
@@ -176,6 +179,7 @@ class RoomWebSocketHandlerTest {
                         ObjectNode payload = objectMapper.createObjectNode();
                         payload.put("capacity", 4);
                         payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
 
                         ObjectNode request = objectMapper.createObjectNode();
                         request.put("type", "create");
@@ -304,6 +308,7 @@ class RoomWebSocketHandlerTest {
                         ObjectNode payload = objectMapper.createObjectNode();
                         payload.put("capacity", 4);
                         payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
 
                         ObjectNode request = objectMapper.createObjectNode();
                         request.put("type", "create");
