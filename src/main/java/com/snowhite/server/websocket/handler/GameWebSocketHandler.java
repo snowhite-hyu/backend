@@ -14,7 +14,6 @@ import com.snowhite.server.websocket.dto.response.PlayerJoinedResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.SimpleMessageResponse;
 import com.snowhite.server.payload.WsMessage;
-import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
