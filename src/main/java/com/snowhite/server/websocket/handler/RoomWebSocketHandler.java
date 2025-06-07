@@ -33,9 +33,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoomWebSocketHandler implements WebSocketHandler {
 
-    private static final AtomicLong roomIdGenerator = new AtomicLong(0);
+    private static final String ROOM_SESSION_PREFIX = "room_session:";
 
-    private final ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
 
@@ -66,7 +66,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         long userId = jwtProvider.extractUserIdFromToken(token);
 
-        return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + userId, session.getId())
+        return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + String.valueOf(userId), session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
                 .onErrorResume(throwable -> sendMessage(session, "error", "Failed to save session").thenReturn(true))
                 .then(
