@@ -28,13 +28,14 @@ import java.util.stream.Collectors;
 public class RoomService {
 
     private static final String ROOM_PREFIX = "room:";
+    private static final String ROOM_SESSION_PREFIX = "room_session:";
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
     private final UserRepository userRepository;
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms;
-    private final ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSessionIds;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
     private final GameService gameService;
 
@@ -44,7 +45,7 @@ public class RoomService {
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")
-            ReactiveRedisTemplate<Long, String> reactiveRedisTemplateForSessionIds,
+            ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds,
             GameService gameService
     ) {
         this.userRepository = userRepository;
@@ -140,7 +141,7 @@ public class RoomService {
                                         : reactiveRedisTemplateForRooms.opsForValue().set(ROOM_PREFIX + roomId, room);
 
                                 return updateRoomMono
-                                        .then(reactiveRedisTemplateForSessionIds.delete(userId))
+                                        .then(reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + String.valueOf(userId)))
                                         .thenReturn(RoomServiceResult.success(room));
                             })
                             .switchIfEmpty(Mono.just(RoomServiceResult.failure("Room is not found")));
