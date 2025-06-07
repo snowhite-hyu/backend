@@ -27,7 +27,6 @@ import reactor.core.publisher.Mono;
 import org.slf4j.Logger;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -67,10 +66,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 );
     }
 
-    public Map<String, WebSocketSession> getSessionMap() {
-        return sessionMap;
-    }
-
     // type에 따라 요청 처리
     public Mono<Void> handleMessage(WebSocketSession session, String message, Long playerId) {
         try {
@@ -101,7 +96,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 case "use-rockfall-card" : {
                     RockfallCardUseRequest request = new RockfallCardUseRequest(
                             payload.get("gameId").asLong(),
-                            payload.get("playerId").asLong(),
+                            playerId,
                             payload.get("cardId").asInt(),
                             payload.get("row").asInt(),
                             payload.get("column").asInt()
@@ -111,7 +106,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 case "use-map-card" : {
                     MapCardUseRequest request = new MapCardUseRequest(
                             payload.get("gameId").asLong(),
-                            payload.get("playerId").asLong(),
+                            playerId,
                             payload.get("cardId").asInt(),
                             payload.get("row").asInt(),
                             payload.get("column").asInt()
@@ -121,7 +116,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 case "use-repair-card" : {
                     RepairCardUseRequest request = new RepairCardUseRequest(
                             payload.get("gameId").asLong(),
-                            payload.get("playerId").asLong(),
+                            playerId,
                             payload.get("targetPlayerId").asLong(),
                             payload.get("cardId").asInt(),
                             objectMapper.treeToValue(payload.get("targetState"), PlayerState.class)
@@ -131,7 +126,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 case "use-broken-card" : {
                     BrokenCardUseRequest request = new BrokenCardUseRequest(
                             payload.get("gameId").asLong(),
-                            payload.get("playerId").asLong(),
+                            playerId,
                             payload.get("targetPlayerId").asLong(),
                             payload.get("cardId").asInt()
                     );
