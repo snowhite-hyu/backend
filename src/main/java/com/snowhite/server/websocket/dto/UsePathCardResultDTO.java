@@ -1,9 +1,6 @@
 package com.snowhite.server.websocket.dto;
 
-import com.snowhite.server.websocket.dto.response.FieldResponse;
-import com.snowhite.server.websocket.dto.response.PublicPlayerResponse;
-import com.snowhite.server.websocket.dto.response.RoundFinishedResponse;
-import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.response.*;
 
 import java.util.List;
 
@@ -11,7 +8,9 @@ public record UsePathCardResultDTO(
         boolean isPossibleToPlace,
         boolean isRoundFinished,
         boolean isGameFinished,
+        TurnChangedResponse turnChangedResponse,
         FieldResponse fieldResponse,
+        SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
         RoundFinishedResponse roundFinishedResponse
 ) {
@@ -21,7 +20,9 @@ public record UsePathCardResultDTO(
                 false,
                 false,
                 false,
+                null,
                 fieldResponse,
+                null,
                 null,
                 null);
     }
@@ -35,21 +36,27 @@ public record UsePathCardResultDTO(
                 true,
                 true,
                 false,
+                null,
                 fieldResponse,
+                null,
                 publicPlayerResponse,
                 roundFinishedResponse
         );
     }
 
     public static UsePathCardResultDTO forNormalResult(
+            TurnChangedResponse turnChangedResponse,
             FieldResponse fieldResponse,
+            SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse
     ) {
         return new UsePathCardResultDTO(
                 true,
                 false,
                 false,
+                turnChangedResponse,
                 fieldResponse,
+                secretPlayerResponse,
                 publicPlayerResponse,
                 null
         );

@@ -441,10 +441,14 @@ public class GameService {
                                         ));
                             }
 
+                            TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                             // 라운드가 끝나지 않았으면 역할 공개는 불필요
                             return setGameToRedis(gameId, game)
                                     .thenReturn(UsePathCardResultDTO.forNormalResult(
+                                            turnChangedResponse,
                                             fieldResponse,
+                                            secretPlayerResponse,
                                             publicPlayerResponse
                                     ));
                         })
