@@ -280,6 +280,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                 .then(broadcastMessageToGame(gameId, "Round-Finished", usePathCardResultDTO.roundFinishedResponse()));
                     }
 
+                    // 카드를 놓은 후 다음 턴 진행
                     return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
                             .then(sendMessage(session, "Player-Info", usePathCardResultDTO.secretPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
