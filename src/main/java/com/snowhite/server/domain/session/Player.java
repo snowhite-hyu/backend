@@ -1,5 +1,6 @@
 package com.snowhite.server.domain.session;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 
@@ -79,5 +80,6 @@ public class Player {
 
     public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 
+    @JsonIgnore
     public int getHandSize() { return this.hand.size(); }
 }
