@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @Getter
 @Setter
 @Entity
-@JsonIgnoreProperties({"email", "password", "createdAt", "updatedAt"})
+@JsonIgnoreProperties(value = {"email", "password", "createdAt", "updatedAt"}, ignoreUnknown = true)
 @Table(name = "users")
 public class User extends BaseEntity {
 

@@ -85,7 +85,6 @@ class GameWebSocketHandlerTest {
         testUser.setUsername("testuser");
         testUser.setPassword(passwordEncoder.encode("password"));
         testUser.setEmail("testuser@test.com");
-        testUser.setLoggedIn(true);
         testUser = userRepository.save(testUser);
 
         jwtToken = jwtProvider.generateToken(testUser.getId());
