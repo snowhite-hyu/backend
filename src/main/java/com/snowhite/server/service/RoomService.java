@@ -37,6 +37,7 @@ public class RoomService {
                     int turnTime = room.getTurnTime();
                     Game newGame = new Game(roomId, players, turnTime);
                     return gameService.setGameToRedis(roomId, newGame)
+                            .then(deleteRoomByRoomId(roomId))
                             .thenReturn(StartGameResponse.of(roomId));
                 });
     }
@@ -62,6 +63,10 @@ public class RoomService {
 
     public Mono<Room> getRoomByRoomId(Long roomId) {
         return reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
+    }
+
+    public Mono<Boolean> deleteRoomByRoomId(Long roomId) {
+        return reactiveRedisTemplateForRoom.opsForValue().delete(ROOM_PREFIX + roomId);
     }
 
 }
