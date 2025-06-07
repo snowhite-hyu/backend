@@ -10,6 +10,7 @@ import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.security.jwt.JwtProvider;
 import com.snowhite.server.service.RoomService;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RoomWebSocketHandler implements WebSocketHandler {
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
@@ -40,19 +42,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private final RoomService roomService;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
-
-    public RoomWebSocketHandler(
-            @Qualifier("reactiveRedisTemplateForSessionIds")
-            ReactiveRedisTemplate<Long, String> redisTemplateForSessionIds,
-            JwtProvider jwtProvider,
-            ObjectMapper objectMapper,
-            RoomService roomService
-    ) {
-        this.redisTemplateForSessionIds = redisTemplateForSessionIds;
-        this.jwtProvider = jwtProvider;
-        this.objectMapper = objectMapper;
-        this.roomService = roomService;
-    }
 
     @Override
     @NonNull
