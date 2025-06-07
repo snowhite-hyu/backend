@@ -9,6 +9,7 @@ import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.websocket.dto.DropCardResultDTO;
 import com.snowhite.server.websocket.dto.UsePathCardResultDTO;
 import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.websocket.dto.response.GameResponse;
@@ -74,21 +75,48 @@ public class GameService {
     }
 
     // 카드 버리기
-    public Mono<Player> dropCard(Long gameId, Long playerId, int cardId) {
-        String gameKey = GAME_PREFIX + gameId;
-        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+    public Mono<DropCardResultDTO> dropCard(Long gameId, Long playerId, Integer cardId) {
+        return getGameByGameId(gameId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
                 .flatMap(game -> {
                     Optional<Player> optionalPlayer = game.findPlayer(playerId);
                     if (optionalPlayer.isEmpty()) {
                         return Mono.error(new IllegalArgumentException("플레이어가 없음"));
                     }
-                    Player player = optionalPlayer.get();
-                    if (!player.dropCard(cardId)) {
+                    Player playerToDropCard = optionalPlayer.get();
+                    if (!playerToDropCard.dropCard(cardId)) {
                         return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
                     }
-                    game.nextTurn();
-                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
+                    game.drawAndGiveCardToPlayer(playerId);
+                    boolean isRoundFinished = game.nextTurnAndReturnRoundFinished();
+
+                    // 카드 버리고 라운드가 끝난 경우
+                    if (isRoundFinished) {
+                        Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                        List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                .map(entry -> {
+                                    long id = entry.getKey();
+                                    int gainedGold = entry.getValue();
+                                    Player player = findPlayerByPlayerId(game, id);
+                                    return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                }).toList();
+                        RoundFinishedResponse roundFinishedResponse = RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList);
+
+                        return setGameToRedis(gameId, game)
+                                .thenReturn(DropCardResultDTO.forRoundFinished(
+                                        SecretPlayerResponse.from(playerToDropCard),
+                                        PublicPlayerResponse.from(playerToDropCard),
+                                        roundFinishedResponse
+                                ));
+                    }
+
+                    // 카드 버리고 다음 턴 진행하는 경우
+                    return setGameToRedis(gameId, game)
+                            .thenReturn(DropCardResultDTO.forNextTurn(
+                                    SecretPlayerResponse.from(playerToDropCard),
+                                    PublicPlayerResponse.from(playerToDropCard),
+                                    TurnChangedResponse.of(game.getCurrentTurnPlayerId())
+                            ));
                 });
     }
 

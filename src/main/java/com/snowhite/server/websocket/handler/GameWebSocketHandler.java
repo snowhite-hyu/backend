@@ -296,7 +296,21 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
     public Mono<Void> handleDropCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId) {
         return gameService.dropCard(gameId, playerId, cardId)
-                .flatMap(player -> sendMessage(session, "Card-Dropped", player));
+                .flatMap(dropCardResultDTO -> {
+
+                    // 카드를 버린 후 라운드가 끝나는 경우
+                    if (dropCardResultDTO.isRoundFinished()) {
+                        return sendMessage(session, "Player-Info", dropCardResultDTO.secretPlayerResponse())
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", dropCardResultDTO.publicPlayerResponse()))
+                                .then(Mono.delay(Duration.ofSeconds(5)))
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", dropCardResultDTO.roundFinishedResponse()));
+                    }
+
+                    // 카드를 버린 후 다음 턴 진행
+                    return (sendMessage(session, "Player-Info", dropCardResultDTO.secretPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", dropCardResultDTO.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", dropCardResultDTO.turnChangedResponse()));
+                });
     }
     // 게임 전체에 broadcast
     public Mono<Void> broadcastMessageToGame(Long gameId, String type, Object payload) {
