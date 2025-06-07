@@ -69,6 +69,7 @@ public class Game {
         }
 
         setNewDeck();
+        setGoldCards();
         shufflePlayers();
         initializeAllPlayersState();
         initializeNewField();
@@ -191,27 +192,28 @@ public class Game {
 
     // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
     public boolean usePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isFlipped) {
-        placeCard(row, column, cardId, isFlipped);
-        findPlayer(playerId).get().dropCard(cardId);
-
-        int goldRow = 1;
-        int goldColumn = 8;
-
-        if (field[3][8][0] == 63) {
-            goldRow = 3;
-        }
-        if (field[5][8][0] == 63) {
-            goldRow = 5;
-        }
-
-        if ((row == goldRow - 1 && column == goldColumn) ||
-                (row == goldRow + 1 && column == goldColumn) ||
-                (row == goldRow && column == goldColumn - 1) ||
-                (row == goldRow && column == goldColumn + 1)) {
-            return true;
-        }
-
-        return false;
+        return true;
+//        placeCard(row, column, cardId, isFlipped);
+//        findPlayer(playerId).get().dropCard(cardId);
+//
+//        int goldRow = 1;
+//        int goldColumn = 8;
+//
+//        if (field[3][8][0] == 63) {
+//            goldRow = 3;
+//        }
+//        if (field[5][8][0] == 63) {
+//            goldRow = 5;
+//        }
+//
+//        if ((row == goldRow - 1 && column == goldColumn) ||
+//                (row == goldRow + 1 && column == goldColumn) ||
+//                (row == goldRow && column == goldColumn - 1) ||
+//                (row == goldRow && column == goldColumn + 1)) {
+//            return true;
+//        }
+//
+//        return false;
 
     }
 
