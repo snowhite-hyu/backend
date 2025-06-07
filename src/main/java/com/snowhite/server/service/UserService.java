@@ -30,8 +30,8 @@ public class UserService {
 
     public Mono<String> login(final LoginRequestDto loginRequestDto) {
         User user = userRepository.findByEmail(loginRequestDto.getEmail());
-        if(!bCryptPasswordEncoder.matches(loginRequestDto.getPassword(), user.getPassword()))
-            throw new BadCredentialsException(ErrorStatus._BAD_REQUEST.toString());
+        if(user==null || !bCryptPasswordEncoder.matches(loginRequestDto.getPassword(), user.getPassword()))
+            throw new GeneralException(ErrorStatus._BAD_REQUEST);
         String accessToken = jwtProvider.generateToken(user.getId());
         LoginResponseDto.builder().token(accessToken).build();
         return Mono.just(accessToken);
