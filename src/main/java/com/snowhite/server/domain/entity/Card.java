@@ -15,6 +15,16 @@ import java.io.Serializable;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "type"
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = StartCard.class, name = "START"),
+        @JsonSubTypes.Type(value = PathCard.class, name = "PATH"),
+        @JsonSubTypes.Type(value = DestinationCard.class, name = "DESTINATION"),
+        @JsonSubTypes.Type(value = ActionCard.class, name = "ACTION")
+})
 public class Card implements Serializable {
 
     @Id

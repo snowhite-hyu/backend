@@ -215,7 +215,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
                                 // 역할 및 금덩이 분배 결과 공개
                                 .then(broadcastMessageToGame(gameId, "Round-Finished", usePathCardResultDTO.roundFinishedResponse()));
                     }
-
                     return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()));
                 });
