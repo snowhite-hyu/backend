@@ -251,13 +251,13 @@ public class GameService {
                                     if (success) {
                                         SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                                         PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
-                                        ChangedGameFieldDTO changedGameFieldDTO = ChangedGameFieldDTO.of(game.getField());
+                                        FieldResponse fieldResponse = FieldResponse.of(-1, row, column, game.getField()[row][column][1]);
                                         TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
                                         UseRockfallCardResultDTO response = new UseRockfallCardResultDTO(
                                                 turnChangedResponse,
                                                 secretPlayerResponse,
                                                 publicPlayerResponse,
-                                                changedGameFieldDTO
+                                                fieldResponse
                                         );
 
                                         log.info("[Rockfall] 카드 사용 완료 - 응답 생성");
@@ -567,14 +567,12 @@ public class GameService {
                                                     if (success) {
                                                         log.info("[Repair] Redis 저장 완료");
                                                         SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
-                                                        SecretPlayerResponse secretTargetPlayerResponse = SecretPlayerResponse.from(game.findPlayer(targetPlayerId).get());
                                                         PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
                                                         PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
                                                         TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
                                                         UseRepairCardDTO response = new UseRepairCardDTO(
                                                                 turnChangedResponse,
                                                                 secretPlayerResponse,
-                                                                secretTargetPlayerResponse,
                                                                 publicPlayerResponse,
                                                                 publicTargetPlayerResponse
                                                         );
@@ -659,14 +657,12 @@ public class GameService {
                                                     if (success) {
                                                         log.info("[Broken] Redis 저장 완료");
                                                         SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
-                                                        SecretPlayerResponse secretTargetPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                                                         PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
                                                         PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
                                                         TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
                                                         UseBrokenCardResultDTO response = new UseBrokenCardResultDTO(
                                                                 turnChangedResponse,
                                                                 secretPlayerResponse,
-                                                                secretTargetPlayerResponse,
                                                                 publicPlayerResponse,
                                                                 publicTargetPlayerResponse
                                                         );

@@ -11,7 +11,6 @@ import java.util.List;
 public record UseBrokenCardResultDTO(
         TurnChangedResponse turnChangedResponse,
         SecretPlayerResponse secretPlayerResponse,
-        SecretPlayerResponse secretTargetPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
         PublicPlayerResponse publicTargetPlayerResponse
 
@@ -19,14 +18,12 @@ public record UseBrokenCardResultDTO(
     public static UseRepairCardDTO forNormalResult(
             TurnChangedResponse turnChangedResponse,
             SecretPlayerResponse secretPlayerResponse,
-            SecretPlayerResponse secretTargetPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
             PublicPlayerResponse publicTargetPlayerResponse
     ) {
         return new UseRepairCardDTO(
                 turnChangedResponse,
                 secretPlayerResponse,
-                secretTargetPlayerResponse,
                 publicPlayerResponse,
                 publicTargetPlayerResponse
         );

@@ -210,7 +210,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    return broadcastMessageToGame(gameId, "Field-Info-Changed", response.changedGameFieldDTO())
+                    return broadcastMessageToGame(gameId, "Field-Info-Changed", response.fieldResponse())
                             .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
@@ -240,9 +240,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMap(response -> {
                     Long gameId = request.gameId();
                     return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                            .then(sendMessage(session, "Target-Player-Info", response.secretTargetPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Target-Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
@@ -256,9 +255,8 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 .flatMap(response -> {
                     Long gameId = request.gameId();
                     return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                            .then(sendMessage(session, "Target-Player-Info", response.secretTargetPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Target-Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
