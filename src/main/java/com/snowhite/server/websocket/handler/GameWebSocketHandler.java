@@ -209,10 +209,11 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseRockfallCard(WebSocketSession session, RockfallCardUseRequest request) {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
-                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
-                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
-                    Mono<Void> publicGameInfo = broadcastMessageToGame(request.gameId(), "Changed-Game-Info", response.changedField());
-                    return Mono.when(secretPlayerInfo, publicPlayerInfo, publicGameInfo);
+                    Long gameId = request.gameId();
+                    return broadcastMessageToGame(gameId, "Field-Info-Changed", response.changedGameFieldDTO())
+                            .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
                     log.error("<rockfall card 처리 중 에러 발생>", e);
@@ -223,7 +224,10 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseMapCard(WebSocketSession session, MapCardUseRequest request) {
         return gameService.useMapCard(request)
                 .flatMap(response -> {
-                    return sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
+                    Long gameId = request.gameId();
+                    return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
                     log.error("<map card 처리 중 에러 발생>", e);
@@ -234,9 +238,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseRepairCard(WebSocketSession session, RepairCardUseRequest request) {
         return gameService.useRepairCard(request)
                 .flatMap(response -> {
-                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
-                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
-                    return Mono.when(secretPlayerInfo, publicPlayerInfo);
+                    Long gameId = request.gameId();
+                    return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                            .then(sendMessage(session, "Target-Player-Info", response.secretTargetPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Target-Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
@@ -247,9 +254,12 @@ public class GameWebSocketHandler implements WebSocketHandler {
     public Mono<Void> handleUseBrokenCard(WebSocketSession session, BrokenCardUseRequest request) {
         return gameService.useBrokenCard(request)
                 .flatMap(response -> {
-                    Mono<Void> secretPlayerInfo = sendMessage(session, "Changed-Secret-Player-Info", response.getSecretInfo());
-                    Mono<Void> publicPlayerInfo = broadcastMessageToGame(request.gameId(), "Changed-Public-Player-Info", response.getPublicInfo());
-                    return Mono.when(secretPlayerInfo, publicPlayerInfo);
+                    Long gameId = request.gameId();
+                    return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                            .then(sendMessage(session, "Target-Player-Info", response.secretTargetPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Target-Player-Info-Changed", response.publicPlayerResponse()))
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);

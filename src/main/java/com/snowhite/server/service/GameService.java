@@ -9,15 +9,10 @@ import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
-import com.snowhite.server.websocket.dto.DropCardResultDTO;
-import com.snowhite.server.websocket.dto.UsePathCardResultDTO;
+import com.snowhite.server.websocket.dto.*;
 import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.websocket.dto.response.GameResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
-import com.snowhite.server.websocket.dto.response.action.BrokenResult;
-import com.snowhite.server.websocket.dto.response.action.MapResult;
-import com.snowhite.server.websocket.dto.response.action.RepairResult;
-import com.snowhite.server.websocket.dto.response.action.RockfallResult;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
 import com.snowhite.server.websocket.dto.response.nextround.NextRoundResponse;
@@ -25,7 +20,6 @@ import com.snowhite.server.payload.code.status.WsErrorStatus;
 import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.payload.exception.WebSocketException;
 import com.snowhite.server.websocket.dto.request.*;
-import com.snowhite.server.websocket.dto.response.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -226,7 +220,7 @@ public class GameService {
         };
     }
 
-    public Mono<RockfallResult> useRockfallCard(RockfallCardUseRequest request) {
+    public Mono<UseRockfallCardResultDTO> useRockfallCard(RockfallCardUseRequest request) {
         try {
             Long gameId = request.gameId();
             Long playerId = request.playerId();
@@ -249,13 +243,23 @@ public class GameService {
                         game.removeCard(row, column);
                         player.removeCard(cardId);
                         log.info("[Rockfall] 카드 제거 완료 - cardId: {}, 위치: ({}, {})", cardId, row, column);
+                        game.drawAndGiveCardToPlayer(playerId);
+                        log.info("[Rockfall] 카드 한장 가져오기");
 
                         return saveGameToRedis(game)
                                 .flatMap(success -> {
                                     if (success) {
-                                        RockfallResult response = new RockfallResult(
-                                                playerId, player.getHandSize(), player.getHand(), game.getField()
+                                        SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                        PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                        ChangedGameFieldDTO changedGameFieldDTO = ChangedGameFieldDTO.of(game.getField());
+                                        TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                                        UseRockfallCardResultDTO response = new UseRockfallCardResultDTO(
+                                                turnChangedResponse,
+                                                secretPlayerResponse,
+                                                publicPlayerResponse,
+                                                changedGameFieldDTO
                                         );
+
                                         log.info("[Rockfall] 카드 사용 완료 - 응답 생성");
                                         return Mono.just(response);
                                     } else {
@@ -278,7 +282,7 @@ public class GameService {
         }
     }
 
-    public Mono<MapResult> useMapCard(MapCardUseRequest request) {
+    public Mono<UseMapCardResultDTO> useMapCard(MapCardUseRequest request) {
         try {
             Long gameId = request.gameId();
             Long playerId = request.playerId();
@@ -304,12 +308,19 @@ public class GameService {
                             }
                             player.removeCard(cardId);
                             log.info("[Map] player로부터 카드 제거 완료 - cardId: {})", cardId);
+                            game.drawAndGiveCardToPlayer(playerId);
+                            log.info("[Map] 카드 한장 가져오기");
 
                             return saveGameToRedis(game)
                                     .flatMap(success -> {
                                         if (success) {
-                                            MapResult response = new MapResult(
-                                                    playerId, player.getHandSize(), player.getHand()
+                                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                            TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                                            UseMapCardResultDTO response = new UseMapCardResultDTO(
+                                                    turnChangedResponse,
+                                                    secretPlayerResponse,
+                                                    publicPlayerResponse
                                             );
                                             log.info("[Map] 카드 사용 완료 - 응답 생성");
                                             return Mono.just(response);
@@ -506,7 +517,7 @@ public class GameService {
                 });
     }
 
-    public Mono<RepairResult> useRepairCard(RepairCardUseRequest request) {
+    public Mono<UseRepairCardDTO> useRepairCard(RepairCardUseRequest request) {
         Long gameId = request.gameId();
         Long playerId = request.playerId();
         int cardId = request.cardId();
@@ -548,14 +559,26 @@ public class GameService {
                                         log.info("[Repair] 상태 복구 및 카드 제거 완료 - playerId: {}, targetPlayerId: {}, cardId: {}",
                                                 playerId, targetPlayerId, cardId);
                                         log.info("[Repair] targetPlayerState 전체 출력: {}", targetPlayer.getState());
+                                        game.drawAndGiveCardToPlayer(playerId);
+                                        log.info("[Repair] 카드 한장 가져오기");
 
                                         return saveGameToRedis(game)
                                                 .flatMap(success -> {
                                                     if (success) {
                                                         log.info("[Repair] Redis 저장 완료");
-                                                        return Mono.just(new RepairResult(
-                                                                playerId, targetPlayerId, player.getHandSize(), player.getHand(), targetPlayer.getState()
-                                                        ));
+                                                        SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                                        SecretPlayerResponse secretTargetPlayerResponse = SecretPlayerResponse.from(game.findPlayer(targetPlayerId).get());
+                                                        PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                                        PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
+                                                        TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                                                        UseRepairCardDTO response = new UseRepairCardDTO(
+                                                                turnChangedResponse,
+                                                                secretPlayerResponse,
+                                                                secretTargetPlayerResponse,
+                                                                publicPlayerResponse,
+                                                                publicTargetPlayerResponse
+                                                        );
+                                                        return Mono.just(response);
                                                     } else {
                                                         log.error("[Repair] Redis 저장 실패");
                                                         return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
@@ -592,7 +615,7 @@ public class GameService {
                 });
     }
 
-    public Mono<BrokenResult> useBrokenCard(BrokenCardUseRequest request) {
+    public Mono<UseBrokenCardResultDTO> useBrokenCard(BrokenCardUseRequest request) {
         Long gameId = request.gameId();
         Long playerId = request.playerId();
         int cardId = request.cardId();
@@ -628,14 +651,26 @@ public class GameService {
                                         player.removeCard(cardId);
                                         log.info("[Broken] 상태 부여 및 카드 제거 완료 - playerId: {}, targetPlayerId: {}, cardId: {}",
                                                 playerId, targetPlayerId, cardId);
+                                        game.drawAndGiveCardToPlayer(playerId);
+                                        log.info("[Broken] 카드 한장 가져오기");
 
                                         return saveGameToRedis(game)
                                                 .flatMap(success -> {
                                                     if (success) {
                                                         log.info("[Broken] Redis 저장 완료");
-                                                        return Mono.just(new BrokenResult(
-                                                                playerId, targetPlayerId, player.getHandSize(), player.getHand(), targetPlayer.getState()
-                                                        ));
+                                                        SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                                        SecretPlayerResponse secretTargetPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                                        PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                                        PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
+                                                        TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                                                        UseBrokenCardResultDTO response = new UseBrokenCardResultDTO(
+                                                                turnChangedResponse,
+                                                                secretPlayerResponse,
+                                                                secretTargetPlayerResponse,
+                                                                publicPlayerResponse,
+                                                                publicTargetPlayerResponse
+                                                        );
+                                                        return Mono.just(response);
                                                     } else {
                                                         log.error("[Broken] Redis 저장 실패");
                                                         return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
