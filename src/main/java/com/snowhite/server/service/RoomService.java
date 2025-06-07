@@ -1,28 +1,19 @@
 package com.snowhite.server.service;
 
-import com.snowhite.server.domain.entity.User;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
 import com.snowhite.server.domain.session.Room;
-import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.web.dto.response.StartGameResponse;
 import com.snowhite.server.web.dto.response.GetRoomResponse;
-import com.snowhite.server.websocket.dto.RoomServiceResult;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
@@ -84,7 +75,7 @@ public class RoomService {
                     }
 
                     User user = optUser.get();
-                    return reactiveRedisTemplateForRooms.opsForValue().get("room:" + roomId)
+                    return reactiveRedisTemplateForRooms.opsForValue().get(ROOM_PREFIX + roomId)
                             .flatMap(room -> {
 
                                 if (room.getUsers().stream().anyMatch(u -> u.getId() == userId)) {
@@ -163,7 +154,7 @@ public class RoomService {
 
     public Flux<String> scanRoomKeys() {
         ScanOptions options =
-                ScanOptions.scanOptions().match("room:*").count(1000).build();
+                ScanOptions.scanOptions().match(ROOM_PREFIX + "*").count(1000).build();
         return reactiveRedisTemplateForRooms.scan(options);
     }
 
