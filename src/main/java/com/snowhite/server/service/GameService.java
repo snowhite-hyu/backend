@@ -150,10 +150,9 @@ public class GameService {
                         Player winner = game.getWinnerPlayer();
                         return setGameToRedis(gameId, game)
                                 .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
-                    } else {
-                        return setGameToRedis(gameId, game)
-                                .thenReturn(NextRoundResultDTO.forRoundStart(GameResponse.from(game)));
                     }
+                    return setGameToRedis(gameId, game)
+                            .thenReturn(NextRoundResultDTO.forRoundStart(GameResponse.from(game)));
                 });
     }
 
