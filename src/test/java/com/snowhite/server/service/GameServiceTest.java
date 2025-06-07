@@ -1,5 +1,6 @@
 package com.snowhite.server.service;
 
+import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +35,7 @@ public class GameServiceTest {
         valueOperations = mock(ReactiveValueOperations.class);
         when(gameRedisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        gameService = new GameService(gameRedisTemplate, null);
+        gameService = new GameService(gameRedisTemplate, null, null);
     }
 
     @Test

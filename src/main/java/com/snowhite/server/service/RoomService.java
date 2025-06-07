@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 public class RoomService {
 
     private static final String ROOM_PREFIX = "room:";
-    private static final String GAME_PREFIX = "game:";
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
