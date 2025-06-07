@@ -148,7 +148,7 @@ public class GameService {
                     boolean isGameFinished = game.startNextRoundAndReturnGameFinished();
                     if (isGameFinished) {
                         Player winner = game.getWinnerPlayer();
-                        return setGameToRedis(gameId, game)
+                        return deleteGameFromRedis(gameId)
                                 .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
                     }
                     return setGameToRedis(gameId, game)
@@ -171,6 +171,10 @@ public class GameService {
 
     public Mono<Boolean> setGameToRedis(Long gameId, Game game) {
         return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
+    }
+
+    public Mono<Boolean> deleteGameFromRedis(Long gameId) {
+        return reactiveRedisTemplateForGame.opsForValue().delete(GAME_PREFIX + gameId);
     }
 
     public Mono<Player> findPlayerByGameIdAndPlayerId(Long gameId, Long playerId) {
