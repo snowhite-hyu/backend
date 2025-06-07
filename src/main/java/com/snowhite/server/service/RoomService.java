@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 public class RoomService {
 
     private static final String ROOM_PREFIX = "room:";
-    private static final String GAME_PREFIX = "game:";
     private static final String ROOM_SESSION_PREFIX = "room_session:";
 
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
@@ -42,7 +41,6 @@ public class RoomService {
 
     public RoomService (
             UserRepository userRepository,
-            @Qualifier("reactiveRedisTemplateForGame")
             ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame,
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms,

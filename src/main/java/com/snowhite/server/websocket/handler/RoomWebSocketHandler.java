@@ -12,7 +12,6 @@ import com.snowhite.server.service.RoomService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -26,10 +25,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RoomWebSocketHandler implements WebSocketHandler {
 
     private static final String ROOM_SESSION_PREFIX = "room_session:";
@@ -41,19 +42,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private final RoomService roomService;
 
     private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
-
-    public RoomWebSocketHandler(
-            @Qualifier("reactiveRedisTemplateForSessionIds")
-            ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds,
-            JwtProvider jwtProvider,
-            ObjectMapper objectMapper,
-            RoomService roomService
-    ) {
-        this.reactiveRedisTemplateForSessionIds = reactiveRedisTemplateForSessionIds;
-        this.jwtProvider = jwtProvider;
-        this.objectMapper = objectMapper;
-        this.roomService = roomService;
-    }
 
     @Override
     @NonNull
@@ -80,7 +68,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + userId, session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
-                .onErrorResume(throwable -> sendMessage(session, "error", "Failed to save session").thenReturn(true))
                 .then(
                         session.receive()
                                 .doFinally(signalType -> sessionMap.remove(session.getId()))
@@ -162,6 +149,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     } else {
                         return sendMessage(session, "error", result.getErrorMessage());
                     }
+
                 });
     }
 
@@ -256,7 +244,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     if (sender == null) {
                         return sendMessage(session, "error", "User is not in room");
                     }
-                    
+
                     // payload: { user: User, message: String }
                     com.fasterxml.jackson.databind.node.ObjectNode chatPayload = objectMapper.createObjectNode();
                     chatPayload.set("user", objectMapper.valueToTree(sender));

@@ -20,8 +20,7 @@ public class Game {
     private List<Integer> deck;
     private List<Integer> goldCards;
     private long currentTurnPlayerId;
-    private int turnTime;   // second
-    private boolean hasPathFromStart;
+    private int turnTime;
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
@@ -34,7 +33,6 @@ public class Game {
         goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
-        hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
 
     public int joinPlayerAndReturnRemain(Long playerId) {
@@ -69,10 +67,12 @@ public class Game {
         }
 
         setNewDeck();
+        setGoldCards();
         shufflePlayers();
+        initializeAllPlayersState();
         initializeNewField();
-        initializeAllPlayerRole();
-        initializeAllPlayerHands();
+        initializeAllPlayersRole();
+        initializeAllPlayersHands();
         nextTurnAndReturnRoundFinished();
         return false;
     }
@@ -91,9 +91,9 @@ public class Game {
         deck.clear();
     }
 
-    private void drawAndGiveCardToPlayer(long playerId) {
-        int cardId = drawCard().get();
-        giveCardToPlayer(cardId, playerId);
+    public void drawAndGiveCardToPlayer(long playerId) {
+        Optional<Integer> cardIdOptional = drawCard();
+        cardIdOptional.ifPresent(cardId -> giveCardToPlayer(cardId, playerId));
     }
 
     public Optional<Integer> drawCard() {
@@ -148,7 +148,7 @@ public class Game {
         return currentTurnPlayerId;
     }
 
-    private boolean nextTurnAndReturnRoundFinished() {
+    public boolean nextTurnAndReturnRoundFinished() {
         if (checkDeckAndHandsEmpty()) {
             return true;
         }
@@ -161,9 +161,17 @@ public class Game {
                 }
             }
         }
-        int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
-        currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
-        return false;
+
+        for (int i = 0; i < players.size(); i++) {
+            int nextTurnIndex = (currentTurnPlayerIndex + 1) % players.size();
+            Player nextPlayer = players.get(nextTurnIndex);
+            if (!nextPlayer.getHand().isEmpty()) { // 핸드가 비어있지 않아야 턴 할당
+                currentTurnPlayerId = players.get(nextTurnIndex).getPlayerId();
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private boolean checkDeckAndHandsEmpty() {
@@ -174,10 +182,36 @@ public class Game {
         return deck.isEmpty() && handsEmpty;
     }
 
-    private int placeCard(int row, int column, int cardId, int isFlipped) {
+    public int placeCard(int row, int column, int cardId, int isFlipped) {
         field[row][column][0] = cardId;
         field[row][column][1] = isFlipped;
         return cardId;
+    }
+
+    // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
+    public boolean usePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isFlipped) {
+        placeCard(row, column, cardId, isFlipped);
+        findPlayer(playerId).get().dropCard(cardId);
+
+        int goldRow = 1;
+        int goldColumn = 8;
+
+        if (field[3][8][0] == 63) {
+            goldRow = 3;
+        }
+        if (field[5][8][0] == 63) {
+            goldRow = 5;
+        }
+
+        if ((row == goldRow - 1 && column == goldColumn) ||
+                (row == goldRow + 1 && column == goldColumn) ||
+                (row == goldRow && column == goldColumn - 1) ||
+                (row == goldRow && column == goldColumn + 1)) {
+            return true;
+        }
+
+        return false;
+
     }
 
     // 출발지, 목적지 카드 세팅
@@ -196,15 +230,21 @@ public class Game {
     }
 
     public void removeCard(int row, int col) {
-        this.field[row][col] = null;
+        this.field[row][col][0] = -1;
+        this.field[row][col][1] = 0;
     }
 
     public void addCardsToDeck(List<Integer> cardIds) {
         this.deck.addAll(cardIds);
     }
 
+    // 모든 player의 state 초기화
+    private void initializeAllPlayersState() {
+        players.forEach(Player::initializePlayerStateToNormal);
+    }
+
     // 모든 player의 역할 초기화
-    private void initializeAllPlayerRole() {
+    private void initializeAllPlayersRole() {
         int playerCount = getPlayerCount();
         int dwarf = 0;
         int saboteur = 0;
@@ -249,7 +289,7 @@ public class Game {
     }
 
     // 모든 player의 손패 초기화
-    private void initializeAllPlayerHands() {
+    private void initializeAllPlayersHands() {
         int playerCount = getPlayerCount();
         int cardNumber = 0;
 
@@ -278,7 +318,7 @@ public class Game {
     @JsonIgnore
     public void setNewDeck() {
         clearDeck();
-        for (int i = 0; i <= 40; i++) {
+        for (int i = 1; i <= 40; i++) {
             deck.add(i);    // 굴
         }
         for (int i = 0; i < 2; i++) {
@@ -320,6 +360,7 @@ public class Game {
     public Map<Long, Integer> distributeGoldToDwarf(long winnerPlayerId) {
         Map<Long, Integer> result = new HashMap<>();
         List<Player> dwarfPlayers = getDwarfPlayers();
+        List<Player> saboteurPlayers = getSaboteurPlayers();
         List<Integer> goldCardsToDistribute = new ArrayList<>();
 
         for (int i = 0; i < dwarfPlayers.size(); i++) {
@@ -341,12 +382,17 @@ public class Game {
             }
         }
 
+        for (Player saboteurPlayer : saboteurPlayers) {
+            result.put(saboteurPlayer.getPlayerId(), 0);
+        }
+
         return result;
     }
 
     // 큰 금덩이 카드부터 사용하면서 정해진 수만큼 분배
     public Map<Long, Integer> distributeGoldToSaboteur() {
         Map<Long, Integer> result = new HashMap<>();
+        List<Player> dwarfPlayers = getDwarfPlayers();
         List<Player> saboteurPlayers = getSaboteurPlayers();
 
         int saboteurCount = saboteurPlayers.size();
@@ -379,6 +425,10 @@ public class Game {
             result.put(saboteurPlayer.getPlayerId(), givenGold);
         }
 
+        for (Player dwarfPlayer : dwarfPlayers) {
+            result.put(dwarfPlayer.getPlayerId(), 0);
+        }
+
         shuffleGoldCards();
 
         return result;
@@ -395,14 +445,22 @@ public class Game {
                 .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
                 .toList();
     }
-    // TODO: field 확장 기능 추가 후 구현
-    public boolean isPossibleLocationToGetCard(int row, int col) {
-        return true;
-    }
 
     public boolean isFlipped(int row, int col) {
         if (field[row][col][1] == 1) { return true; }
         else { return false; }
+    }
+
+    public Integer getPathCardIdAt(Integer row, Integer col) {
+        // 시작, 목적지 카드인 경우
+        if ((row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;
+        else return field[row][col][0];
+    }
+
+    public Integer getDestCardIdAt(Integer row, Integer col) {
+        // 목적지 카드가 맞는 경우
+        if ((row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return field[row][col][0];
+        else return -1;
     }
 
 }
