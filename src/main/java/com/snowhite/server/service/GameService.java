@@ -90,6 +90,9 @@ public class GameService {
                     game.drawAndGiveCardToPlayer(playerId);
                     boolean isRoundFinished = game.nextTurnAndReturnRoundFinished();
 
+                    SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(playerToDropCard);
+                    PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(playerToDropCard);
+
                     // 카드 버리고 라운드가 끝난 경우
                     if (isRoundFinished) {
                         Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
@@ -104,8 +107,8 @@ public class GameService {
 
                         return setGameToRedis(gameId, game)
                                 .thenReturn(DropCardResultDTO.forRoundFinished(
-                                        SecretPlayerResponse.from(playerToDropCard),
-                                        PublicPlayerResponse.from(playerToDropCard),
+                                        secretPlayerResponse,
+                                        publicPlayerResponse,
                                         roundFinishedResponse
                                 ));
                     }
@@ -113,8 +116,8 @@ public class GameService {
                     // 카드 버리고 다음 턴 진행하는 경우
                     return setGameToRedis(gameId, game)
                             .thenReturn(DropCardResultDTO.forNextTurn(
-                                    SecretPlayerResponse.from(playerToDropCard),
-                                    PublicPlayerResponse.from(playerToDropCard),
+                                    secretPlayerResponse,
+                                    publicPlayerResponse,
                                     TurnChangedResponse.of(game.getCurrentTurnPlayerId())
                             ));
                 });
