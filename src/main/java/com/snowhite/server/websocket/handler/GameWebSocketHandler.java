@@ -210,7 +210,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    return broadcastMessageToGame(gameId, "Field-Info-Changed", response.fieldResponse())
+                    return broadcastMessageToGame(gameId, "Field-Changed", response.fieldResponse())
                             .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
