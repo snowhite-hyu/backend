@@ -42,6 +42,10 @@ public class Player {
         hand.clear();
     }
 
+    public void initializePlayerStateToNormal() {
+        state = EnumSet.of(PlayerState.NORMAL);
+    }
+
     public void addPlayerState(PlayerState state) {
         if (!hasState(state)) {
             this.state.add(state);
@@ -72,6 +76,7 @@ public class Player {
     public void removeCard(int cardId) {
         this.hand.remove(Integer.valueOf(cardId));
     }
+
     public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 
     public int getHandSize() { return this.hand.size(); }

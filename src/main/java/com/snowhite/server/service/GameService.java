@@ -2,10 +2,16 @@ package com.snowhite.server.service;
 
 import com.snowhite.server.domain.entity.ActionCard;
 import com.snowhite.server.domain.entity.Card;
+import com.snowhite.server.domain.entity.PathCard;
+import com.snowhite.server.domain.enums.CardType;
+import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
+import com.snowhite.server.websocket.dto.DropCardResultDTO;
+import com.snowhite.server.websocket.dto.UsePathCardResultDTO;
+import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.websocket.dto.response.GameResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.action.BrokenResult;
@@ -29,7 +35,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,11 +45,13 @@ public class GameService {
 
     private static final String GAME_PREFIX = "game:";
     private static final String CARD_PREFIX = "card:";
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
     private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Card> reactiveRedisTemplateForCard;
 
-    private static final Logger log = LoggerFactory.getLogger(GameService.class);
+    private final CardService cardService;
+
 
     // 카드 가져오기
     public Mono<Player> getCard(Long gameId, Long playerId) {
@@ -67,21 +75,51 @@ public class GameService {
     }
 
     // 카드 버리기
-    public Mono<Player> dropCard(Long gameId, Long playerId, int cardId) {
-        String gameKey = GAME_PREFIX + gameId;
-        return reactiveRedisTemplateForGame.opsForValue().get(gameKey)
+    public Mono<DropCardResultDTO> dropCard(Long gameId, Long playerId, Integer cardId) {
+        return getGameByGameId(gameId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("게임이 없음")))
                 .flatMap(game -> {
                     Optional<Player> optionalPlayer = game.findPlayer(playerId);
                     if (optionalPlayer.isEmpty()) {
                         return Mono.error(new IllegalArgumentException("플레이어가 없음"));
                     }
-                    Player player = optionalPlayer.get();
-                    if (!player.dropCard(cardId)) {
+                    Player playerToDropCard = optionalPlayer.get();
+                    if (!playerToDropCard.dropCard(cardId)) {
                         return Mono.error(new IllegalArgumentException("해당 카드가 없음"));
                     }
-                    game.nextTurn();
-                    return reactiveRedisTemplateForGame.opsForValue().set(gameKey, game).thenReturn(player);
+                    game.drawAndGiveCardToPlayer(playerId);
+                    boolean isRoundFinished = game.nextTurnAndReturnRoundFinished();
+
+                    SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(playerToDropCard);
+                    PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(playerToDropCard);
+
+                    // 카드 버리고 라운드가 끝난 경우
+                    if (isRoundFinished) {
+                        Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                        List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                .map(entry -> {
+                                    long id = entry.getKey();
+                                    int gainedGold = entry.getValue();
+                                    Player player = findPlayerByPlayerId(game, id);
+                                    return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                }).toList();
+                        RoundFinishedResponse roundFinishedResponse = RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList);
+
+                        return setGameToRedis(gameId, game)
+                                .thenReturn(DropCardResultDTO.forRoundFinished(
+                                        secretPlayerResponse,
+                                        publicPlayerResponse,
+                                        roundFinishedResponse
+                                ));
+                    }
+
+                    // 카드 버리고 다음 턴 진행하는 경우
+                    return setGameToRedis(gameId, game)
+                            .thenReturn(DropCardResultDTO.forNextTurn(
+                                    secretPlayerResponse,
+                                    publicPlayerResponse,
+                                    TurnChangedResponse.of(game.getCurrentTurnPlayerId())
+                            ));
                 });
     }
 
@@ -303,6 +341,169 @@ public class GameService {
             log.error("[Map] 알 수 없는 예외 발생", e);
             return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
         }
+    }
+
+    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isFlipped) {
+
+        return getGameByGameId(gameId)
+                .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
+                        .flatMap(isPossible -> {
+                            boolean isDwarfWon = false;
+                            boolean isRoundFinished = false;
+                            boolean isGameFinished = false;
+                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
+
+                            // 카드를 놓을 수 없으면 바로 리턴
+                            if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
+                            // 굴 카드 배치 후 금 목적지 도달 여부
+                            if (game.usePathCardAndReturnRoundFinished(playerId, cardId, row, column, isFlipped)) {
+                                isDwarfWon = true;
+                                isRoundFinished = true;
+                            }
+
+                            game.drawAndGiveCardToPlayer(playerId);
+                            if (game.nextTurnAndReturnRoundFinished()) {
+                                isRoundFinished = true;
+                            }
+
+                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+
+                            // 라운드가 끝났으면 역할 공개 필요
+                            if (isRoundFinished) {
+                                // 광부가 이긴 경우
+                                if (isDwarfWon) {
+                                    Map<Long, Integer> distributedGoldInfo = game.distributeGoldToDwarf(playerId);
+                                    List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                            .map(entry -> {
+                                                long id = entry.getKey();
+                                                int gainedGold = entry.getValue();
+                                                Player player = findPlayerByPlayerId(game, id);
+                                                return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                            }).toList();
+
+                                    return setGameToRedis(gameId, game)
+                                            .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                    fieldResponse,
+                                                    secretPlayerResponse,
+                                                    publicPlayerResponse,
+                                                    RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
+                                            ));
+                                }
+                                // 사보타지가 이긴 경우
+                                Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                                List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                        .map(entry -> {
+                                            long id = entry.getKey();
+                                            int gainedGold = entry.getValue();
+                                            Player player = findPlayerByPlayerId(game, id);
+                                            return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                        }).toList();
+
+                                return setGameToRedis(gameId, game)
+                                        .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                fieldResponse,
+                                                secretPlayerResponse,
+                                                publicPlayerResponse,
+                                                RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
+                                        ));
+                            }
+
+                            TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                            // 라운드가 끝나지 않았으면 역할 공개는 불필요
+                            return setGameToRedis(gameId, game)
+                                    .thenReturn(UsePathCardResultDTO.forNormalResult(
+                                            turnChangedResponse,
+                                            fieldResponse,
+                                            secretPlayerResponse,
+                                            publicPlayerResponse
+                                    ));
+                        })
+                );
+    }
+
+    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {
+        Integer[][][] field = game.getField();
+        return cardService.findCardByCardId(cardIdToPlace)
+                .map(card -> (PathCard) card)
+                .flatMap(cardToPlace -> {
+                    Mono<Boolean> upperCheck = Mono.just(true);
+                    Mono<Boolean> lowerCheck = Mono.just(true);
+                    Mono<Boolean> leftCheck = Mono.just(true);
+                    Mono<Boolean> rightCheck = Mono.just(true);
+
+                    Set<Integer> destinationCardIds = Set.of(61, 62, 63);
+
+                    // 위쪽 검사
+                    if (row > 0 && field[row - 1][column][0] != -1) { // 놓을 자리가 맨 위가 아니고 위에 카드가 있는 경우
+                        int upperCardId = field[row - 1][column][0];
+                        int upperCardFlipped = field[row - 1][column][1];
+                        if (!destinationCardIds.contains(upperCardId)) {
+                            upperCheck = cardService.findCardByCardId(upperCardId)
+                                    .flatMap(card -> {
+                                        if (card.getType() == CardType.START) {
+                                            return Mono.just(cardToPlace.isUpperOpened(flipped));
+                                        }
+                                        PathCard upperCard = (PathCard) card;
+                                        return Mono.just(cardToPlace.isUpperOpened(flipped) == upperCard.isLowerOpened(upperCardFlipped));
+                                    });
+                        }
+                    }
+
+                    // 아래쪽 검사
+                    if (row < field.length - 1 && field[row + 1][column][0] != -1) { // 놓을 자리가 맨 아래가 아니고 아래에 카드가 있는 경우
+                        int lowerCardId = field[row + 1][column][0];
+                        int lowerCardFlipped = field[row + 1][column][1];
+                        if (!destinationCardIds.contains(lowerCardId)) {
+                            lowerCheck = cardService.findCardByCardId(lowerCardId)
+                                    .flatMap(card -> {
+                                        if (card.getType() == CardType.START) {
+                                            return Mono.just(cardToPlace.isLowerOpened(flipped));
+                                        }
+                                        PathCard lowerCard = (PathCard) card;
+                                        return Mono.just(cardToPlace.isLowerOpened(flipped) == lowerCard.isUpperOpened(lowerCardFlipped));
+                                    });
+                        }
+                    }
+
+                    // 왼쪽 카드 검사
+                    if (column > 0 && field[row][column - 1][0] != -1) { // 놓을 자리가 맨 왼쪽이 아니고 왼쪽에 카드가 있는 경우
+                        int leftCardId = field[row][column - 1][0];
+                        int leftCardFlipped = field[row][column - 1][1];
+                        if (!destinationCardIds.contains(leftCardId)) {
+                            leftCheck = cardService.findCardByCardId(leftCardId)
+                                    .flatMap(card -> {
+                                        if (card.getType() == CardType.START) {
+                                            return Mono.just(cardToPlace.isLeftOpened(flipped));
+                                        }
+                                        PathCard leftCard = (PathCard) card;
+                                        return Mono.just(cardToPlace.isLeftOpened(flipped) == leftCard.isRightOpened(leftCardFlipped));
+                                    });
+                        }
+                    }
+
+                    // 오른쪽 카드 검사
+                    if (column < field[0].length - 1 && field[row][column + 1][0] != -1) { // 놓을 자리가 맨 오른쪽이 아니고 오른쪽에 카드가 있는 경우
+                        int rightCardId = field[row][column + 1][0];
+                        int rightCardFlipped = field[row][column + 1][1];
+                        if (!destinationCardIds.contains(rightCardId)) {
+                            rightCheck = cardService.findCardByCardId(rightCardId)
+                                    .flatMap(card -> {
+                                        if (card.getType() == CardType.START) {
+                                            return Mono.just(cardToPlace.isRightOpened(flipped));
+                                        }
+                                        PathCard rightCard = (PathCard) card;
+                                        return Mono.just(cardToPlace.isRightOpened(flipped) == rightCard.isLeftOpened(rightCardFlipped));
+                                    });
+                        }
+                    }
+
+                    // 다 모아서 전부 true인 경우 true
+                    return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
+                            .map(results -> {
+                                return results.getT1() && results.getT2() && results.getT3() && results.getT4();
+                            });
+                });
     }
 
     public Mono<RepairResult> useRepairCard(RepairCardUseRequest request) {
