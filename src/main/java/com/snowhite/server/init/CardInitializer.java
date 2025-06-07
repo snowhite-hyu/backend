@@ -4,6 +4,7 @@ import com.snowhite.server.domain.entity.Card;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.factory.CardFactory;
 import com.snowhite.server.repository.CardRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -29,6 +30,7 @@ public class CardInitializer {
     // 게임 로직에 필요한 카드 세팅
     @Transactional
     @EventListener(ApplicationReadyEvent.class)
+    @PostConstruct
     public void initializeCards() {
         List<Card> cardList = List.of(
                 CardFactory.createStartCard(0, "start", true, true, true, true, true),
