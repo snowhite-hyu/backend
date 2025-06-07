@@ -20,8 +20,7 @@ public class Game {
     private List<Integer> deck;
     private List<Integer> goldCards;
     private long currentTurnPlayerId;
-    private int turnTime;   // second
-    private boolean hasPathFromStart;
+    private int turnTime;
 
     public Game(long gameId, List<Player> players, int turnTime) {
         this.gameId = gameId;
@@ -34,7 +33,6 @@ public class Game {
         goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
         this.turnTime = turnTime;
-        hasPathFromStart = false; // rockfall로 인해 끊김을 체크
     }
 
     public int joinPlayerAndReturnRemain(Long playerId) {
@@ -232,7 +230,8 @@ public class Game {
     }
 
     public void removeCard(int row, int col) {
-        this.field[row][col] = null;
+        this.field[row][col][0] = -1;
+        this.field[row][col][1] = 0;
     }
 
     public void addCardsToDeck(List<Integer> cardIds) {
@@ -447,14 +446,21 @@ public class Game {
                 .toList();
     }
 
-    // TODO: field 확장 기능 추가 후 구현
-    public boolean isPossibleLocationToGetCard(int row, int col) {
-        return true;
-    }
-
     public boolean isFlipped(int row, int col) {
         if (field[row][col][1] == 1) { return true; }
         else { return false; }
+    }
+
+    public Integer getPathCardIdAt(Integer row, Integer col) {
+        // 시작, 목적지 카드인 경우
+        if ((row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;
+        else return field[row][col][0];
+    }
+
+    public Integer getDestCardIdAt(Integer row, Integer col) {
+        // 목적지 카드가 맞는 경우
+        if ((row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return field[row][col][0];
+        else return -1;
     }
 
 }

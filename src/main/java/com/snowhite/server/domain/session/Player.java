@@ -2,8 +2,8 @@ package com.snowhite.server.domain.session;
 
 import com.snowhite.server.domain.enums.PlayerRole;
 import com.snowhite.server.domain.enums.PlayerState;
+
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ public class Player {
         this.playerId = playerId;
         this.playerName = playerName;
         hand = new ArrayList<>();
-        state = EnumSet.of(PlayerState.NORMAL);
+        this.state = EnumSet.of(PlayerState.NORMAL);
         gold = 0;
     }
 
@@ -47,11 +47,21 @@ public class Player {
     }
 
     public void addPlayerState(PlayerState state) {
-        if (!hasState(state)) { this.state.add(state); }
+        if (!hasState(state)) {
+            this.state.add(state);
+        }
+        if(state != PlayerState.NORMAL && hasState(PlayerState.NORMAL)) {
+            removePlayerState(PlayerState.NORMAL);
+        }
     }
 
     public void removePlayerState(PlayerState state) {
-        if (hasState(state)) { this.state.remove(state); }
+        if (hasState(state)) {
+            this.state.remove(state);
+        }
+        if (this.state.isEmpty()) {
+            addPlayerState(PlayerState.NORMAL);
+        }
     }
 
     public boolean hasState(PlayerState state) {
@@ -64,9 +74,10 @@ public class Player {
     }
 
     public void removeCard(int cardId) {
-        this.hand.remove(cardId);
+        this.hand.remove(Integer.valueOf(cardId));
     }
 
     public boolean hasCard(Integer cardId) { return this.hand.contains(cardId); }
 
+    public int getHandSize() { return this.hand.size(); }
 }
