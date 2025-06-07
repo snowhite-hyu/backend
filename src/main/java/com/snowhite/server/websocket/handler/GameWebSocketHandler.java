@@ -172,19 +172,21 @@ public class GameWebSocketHandler implements WebSocketHandler {
                         PlayerJoinedResponse result = PlayerJoinedResponse.of(playersLeft);
                         return broadcastMessageToGame(gameId, "Game-Joined", result);
                     }
-                    return gameService.processNextRoundOrFinishRound(gameId)
-                            .flatMap(result ->  broadcastMessageToGame(gameId, "Round-Started", result));
+                    return gameService.processNextRoundOrFinishGame(gameId)
+                            .flatMap(nextRoundResultDTO ->  broadcastMessageToGame(gameId, "Round-Started", nextRoundResultDTO.gameResponse()));
                 });
     }
 
     public Mono<Void> handleNextRound(WebSocketSession session, Long gameId) {
-        return gameService.processNextRoundOrFinishRound(gameId)
-                .flatMap(result -> {
-                    if (result instanceof NextRoundGameResponse) {
-                        return broadcastMessageToGame(gameId, "Round-Started", result);
-                    } else {    // result instanceof NextRoundPlayersResponse
-                        return broadcastMessageToGame(gameId, "Round-Finished", result);
+        return gameService.processNextRoundOrFinishGame(gameId)
+                .flatMap(nextRoundResultDTO -> {
+                    boolean isGameFinished = nextRoundResultDTO.isGameFinished();
+                    // 게임이 끝난 경우
+                    if (isGameFinished) {
+                        return broadcastMessageToGame(gameId, "Game-Finished", nextRoundResultDTO.winnerPublicPlayerResponse());
                     }
+                    // 게임을 끝나지 않고 다음 라운드 시작
+                    return broadcastMessageToGame(gameId, "Round-Started", nextRoundResultDTO.gameResponse());
                 });
     }
 
