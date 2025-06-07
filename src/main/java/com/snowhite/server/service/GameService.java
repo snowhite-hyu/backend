@@ -391,7 +391,7 @@ public class GameService {
                             // 카드를 놓을 수 없으면 바로 리턴
                             if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
                             // 굴 카드 배치 후 금 목적지 도달 여부
-                            if (game.placePathCardAndReturnRoundFinished(cardId, row, column, isFlipped)) {
+                            if (game.usePathCardAndReturnRoundFinished(playerId, cardId, row, column, isFlipped)) {
                                 isDwarfWon = true;
                                 isRoundFinished = true;
                             }

@@ -189,8 +189,10 @@ public class Game {
         return cardId;
     }
 
-    public boolean placePathCardAndReturnRoundFinished(int cardId, int row, int column, int isFlipped) {
+    // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
+    public boolean usePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isFlipped) {
         placeCard(row, column, cardId, isFlipped);
+        findPlayer(playerId).get().dropCard(cardId);
 
         int goldRow = 1;
         int goldColumn = 8;
