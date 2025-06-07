@@ -29,6 +29,7 @@ public record UsePathCardResultDTO(
 
     public static UsePathCardResultDTO forRoundFinishedResult(
             FieldResponse fieldResponse,
+            SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
             RoundFinishedResponse roundFinishedResponse) {
 
@@ -38,7 +39,7 @@ public record UsePathCardResultDTO(
                 false,
                 null,
                 fieldResponse,
-                null,
+                secretPlayerResponse,
                 publicPlayerResponse,
                 roundFinishedResponse
         );

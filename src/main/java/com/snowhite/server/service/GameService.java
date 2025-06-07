@@ -363,6 +363,7 @@ public class GameService {
                                 isRoundFinished = true;
                             }
 
+                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                             PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
 
                             // 라운드가 끝났으면 역할 공개 필요
@@ -381,6 +382,7 @@ public class GameService {
                                     return setGameToRedis(gameId, game)
                                             .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
                                                     fieldResponse,
+                                                    secretPlayerResponse,
                                                     publicPlayerResponse,
                                                     RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
                                             ));
@@ -398,13 +400,13 @@ public class GameService {
                                 return setGameToRedis(gameId, game)
                                         .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
                                                 fieldResponse,
+                                                secretPlayerResponse,
                                                 publicPlayerResponse,
                                                 RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
                                         ));
                             }
 
                             TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
-                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                             // 라운드가 끝나지 않았으면 역할 공개는 불필요
                             return setGameToRedis(gameId, game)
                                     .thenReturn(UsePathCardResultDTO.forNormalResult(

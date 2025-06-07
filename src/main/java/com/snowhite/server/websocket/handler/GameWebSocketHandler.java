@@ -274,6 +274,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     // 카드를 놓은 후 라운드가 끝나는 경우
                     if (usePathCardResultDTO.isRoundFinished()) {
                         return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
+                                .then(sendMessage(session, "Player-Info", usePathCardResultDTO.secretPlayerResponse()))
                                 .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
                                 .then(Mono.delay(Duration.ofSeconds(5)))
                                 // 역할 및 금덩이 분배 결과 공개
