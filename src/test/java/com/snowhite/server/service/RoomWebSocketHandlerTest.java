@@ -418,7 +418,7 @@ class RoomWebSocketHandlerTest {
                 session -> {
 
                     ObjectNode payload = objectMapper.createObjectNode();
-                    payload.put("roomId", roomId+1L);
+                    payload.put("roomId", roomId+10L);
 
                     ObjectNode request = objectMapper.createObjectNode();
                     request.put("type", "join");
