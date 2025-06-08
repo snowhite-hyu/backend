@@ -446,10 +446,13 @@ public class GameService {
                     Mono<Boolean> leftCheck = Mono.just(true);
                     Mono<Boolean> rightCheck = Mono.just(true);
 
+                    boolean hasAdjacent = false;
+
                     Set<Integer> destinationCardIds = Set.of(61, 62, 63);
 
                     // 위쪽 검사
                     if (row > 0 && field[row - 1][column][0] != -1) { // 놓을 자리가 맨 위가 아니고 위에 카드가 있는 경우
+                        hasAdjacent = true;
                         int upperCardId = field[row - 1][column][0];
                         int upperCardFlipped = field[row - 1][column][1];
                         if (!destinationCardIds.contains(upperCardId)) {
@@ -466,6 +469,7 @@ public class GameService {
 
                     // 아래쪽 검사
                     if (row < field.length - 1 && field[row + 1][column][0] != -1) { // 놓을 자리가 맨 아래가 아니고 아래에 카드가 있는 경우
+                        hasAdjacent = true;
                         int lowerCardId = field[row + 1][column][0];
                         int lowerCardFlipped = field[row + 1][column][1];
                         if (!destinationCardIds.contains(lowerCardId)) {
@@ -482,6 +486,7 @@ public class GameService {
 
                     // 왼쪽 카드 검사
                     if (column > 0 && field[row][column - 1][0] != -1) { // 놓을 자리가 맨 왼쪽이 아니고 왼쪽에 카드가 있는 경우
+                        hasAdjacent = true;
                         int leftCardId = field[row][column - 1][0];
                         int leftCardFlipped = field[row][column - 1][1];
                         if (!destinationCardIds.contains(leftCardId)) {
@@ -498,6 +503,7 @@ public class GameService {
 
                     // 오른쪽 카드 검사
                     if (column < field[0].length - 1 && field[row][column + 1][0] != -1) { // 놓을 자리가 맨 오른쪽이 아니고 오른쪽에 카드가 있는 경우
+                        hasAdjacent = true;
                         int rightCardId = field[row][column + 1][0];
                         int rightCardFlipped = field[row][column + 1][1];
                         if (!destinationCardIds.contains(rightCardId)) {
@@ -512,7 +518,11 @@ public class GameService {
                         }
                     }
 
-                    // 다 모아서 전부 true인 경우 true
+                    // 상하좌우 카드가 없으면 배치 불가
+                    if (!hasAdjacent) {
+                        return Mono.just(false);
+                    }
+                    // 다 모아서 전부 연결 가능한 경우 true
                     return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
                             .map(results -> {
                                 return results.getT1() && results.getT2() && results.getT3() && results.getT4();
