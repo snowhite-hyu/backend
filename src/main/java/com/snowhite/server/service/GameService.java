@@ -9,13 +9,13 @@ import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.domain.enums.ActionCardType;
 import com.snowhite.server.domain.session.Game;
 import com.snowhite.server.domain.session.Player;
-import com.snowhite.server.websocket.dto.*;
+import com.snowhite.server.websocket.dto.DropCardResultDTO;
+import com.snowhite.server.websocket.dto.NextRoundResultDTO;
+import com.snowhite.server.websocket.dto.UsePathCardResultDTO;
 import com.snowhite.server.websocket.dto.response.*;
 import com.snowhite.server.websocket.dto.response.GameResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
-import com.snowhite.server.websocket.dto.response.nextround.NextRoundGameResponse;
-import com.snowhite.server.websocket.dto.response.nextround.NextRoundPlayersResponse;
-import com.snowhite.server.websocket.dto.response.nextround.NextRoundResponse;
+import com.snowhite.server.websocket.dto.*;
 import com.snowhite.server.payload.code.status.WsErrorStatus;
 import com.snowhite.server.payload.exception.BusinessException;
 import com.snowhite.server.payload.exception.WebSocketException;
@@ -134,19 +134,18 @@ public class GameService {
     }
 
     // 새로운 round 시작 또는 round 종료
-    public Mono<NextRoundResponse> processNextRoundOrFinishRound(Long gameId) {
+    public Mono<NextRoundResultDTO> processNextRoundOrFinishGame(Long gameId) {
 
         return getGameByGameId(gameId)
                 .flatMap(game -> {
-                    boolean isFinished = game.startNextRoundAndReturnGameFinished();
-                    if (isFinished) {
-                        return setGameToRedis(gameId, game)
-                                .then(getAllSecretPlayerInfo(game))
-                                .map(NextRoundPlayersResponse::of);
-                    } else {
-                        return setGameToRedis(gameId, game)
-                                .thenReturn(NextRoundGameResponse.of(GameResponse.from(game)));
+                    boolean isGameFinished = game.startNextRoundAndReturnGameFinished();
+                    if (isGameFinished) {
+                        Player winner = game.getWinnerPlayer();
+                        return deleteGameFromRedis(gameId)
+                                .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
                     }
+                    return setGameToRedis(gameId, game)
+                            .thenReturn(NextRoundResultDTO.forRoundStart(GameResponse.from(game)));
                 });
     }
 
@@ -165,6 +164,10 @@ public class GameService {
 
     public Mono<Boolean> setGameToRedis(Long gameId, Game game) {
         return reactiveRedisTemplateForGame.opsForValue().set(GAME_PREFIX + gameId, game);
+    }
+
+    public Mono<Boolean> deleteGameFromRedis(Long gameId) {
+        return reactiveRedisTemplateForGame.opsForValue().delete(GAME_PREFIX + gameId);
     }
 
     public Mono<Player> findPlayerByGameIdAndPlayerId(Long gameId, Long playerId) {
