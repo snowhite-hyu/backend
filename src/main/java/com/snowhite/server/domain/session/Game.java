@@ -28,7 +28,7 @@ public class Game {
         joinedPlayerIds = new ArrayList<>();
         round = 0;
         gameState = GameState.WAITING;
-        field = new Integer[7][9][2];
+        field = new Integer[7][9][4];
         deck = new ArrayList<>();
         goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
@@ -82,7 +82,9 @@ public class Game {
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
                 field[i][j][0] = -1;    // -1: 카드 x
-                field[i][j][1] = 0; // isflipped
+                field[i][j][1] = 0; // isSpun - 0: 카드 그대로, 1: 카드 돌아감
+                field[i][j][2] = 0; // isFlipped - 0: 카드 보임, 1: 카드 안보임
+                field[i][j][3] = 0; // isConnectedFromStart - 0: 카드 출발지와 연결 안됨, 1: 카드 출발지와 연결됨
             }
         }
     }
@@ -182,15 +184,17 @@ public class Game {
         return deck.isEmpty() && handsEmpty;
     }
 
-    public int placeCard(int row, int column, int cardId, int isFlipped) {
+    public int placeCard(int row, int column, int cardId, int isSpun, int isFlipped, int isConnectedFromStart) {
         field[row][column][0] = cardId;
-        field[row][column][1] = isFlipped;
+        field[row][column][1] = isSpun;
+        field[row][column][2] = isFlipped;
+        field[row][column][3] = isConnectedFromStart;
         return cardId;
     }
 
     // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
-    public boolean usePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isFlipped) {
-        placeCard(row, column, cardId, isFlipped);
+    public boolean placePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isSpun) {
+        placeCard(row, column, cardId, isSpun, 0, 1);
         findPlayer(playerId).get().dropCard(cardId);
 
         int goldRow = 1;
@@ -236,15 +240,17 @@ public class Game {
         cardIds.add(63);
         Collections.shuffle(cardIds);
 
-        placeCard(3, 0, 0, 0);
-        placeCard(1, 8, cardIds.get(0), 0);
-        placeCard(3, 8, cardIds.get(1), 0);
-        placeCard(5, 8, cardIds.get(2), 0);
+        placeCard(3, 0, 0, 0, 0, 1);
+        placeCard(1, 8, cardIds.get(0), 0, 1, 0);
+        placeCard(3, 8, cardIds.get(1), 0, 1, 0);
+        placeCard(5, 8, cardIds.get(2), 0, 1, 0);
     }
 
     public void removeCard(int row, int col) {
-        this.field[row][col][0] = -1;
-        this.field[row][col][1] = 0;
+        field[row][col][0] = -1;
+        field[row][col][1] = 0;
+        field[row][col][2] = 0;
+        field[row][col][3] = 0;
     }
 
     public void addCardsToDeck(List<Integer> cardIds) {
@@ -460,8 +466,7 @@ public class Game {
     }
 
     public boolean isFlipped(int row, int col) {
-        if (field[row][col][1] == 1) { return true; }
-        else { return false; }
+        return field[row][col][2] == 1;
     }
 
     public Integer getPathCardIdAt(Integer row, Integer col) {

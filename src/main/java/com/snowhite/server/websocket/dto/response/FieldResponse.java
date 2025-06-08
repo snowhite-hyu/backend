@@ -4,9 +4,9 @@ public record FieldResponse(
         int cardId,
         int row,
         int column,
-        int isFlipped
+        int isSpun
 ) {
-    public static FieldResponse of(int cardId, int row, int column, int isFlipped) {
-        return new FieldResponse(cardId, row, column, isFlipped);
+    public static FieldResponse of(int cardId, int row, int column, int isSpun) {
+        return new FieldResponse(cardId, row, column, isSpun);
     }
 }
