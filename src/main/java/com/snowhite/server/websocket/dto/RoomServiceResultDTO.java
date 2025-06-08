@@ -2,24 +2,24 @@ package com.snowhite.server.websocket.dto;
 
 import com.snowhite.server.domain.session.Room;
 
-public class RoomServiceResult {
+public class RoomServiceResultDTO {
 
     private final boolean success;
     private final String errorMessage;
     private final Room room;
 
-    private RoomServiceResult(boolean success, String errorMessage, Room room) {
+    private RoomServiceResultDTO(boolean success, String errorMessage, Room room) {
         this.success = success;
         this.errorMessage = errorMessage;
         this.room = room;
     }
 
-    public static RoomServiceResult success(Room room) {
-        return new RoomServiceResult(true, null, room);
+    public static RoomServiceResultDTO success(Room room) {
+        return new RoomServiceResultDTO(true, null, room);
     }
 
-    public static RoomServiceResult failure(String errorMessage) {
-        return new RoomServiceResult(false, errorMessage, null);
+    public static RoomServiceResultDTO failure(String errorMessage) {
+        return new RoomServiceResultDTO(false, errorMessage, null);
     }
 
     public boolean isSuccess() {

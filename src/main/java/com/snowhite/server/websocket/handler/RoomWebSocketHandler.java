@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,8 +65,9 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
         long userId = jwtProvider.extractUserIdFromToken(token);
 
-        return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + userId, session.getId())
+        return reactiveRedisTemplateForSessionIds.opsForValue().set(ROOM_SESSION_PREFIX + String.valueOf(userId), session.getId())
                 .doOnSuccess(ignored -> sessionMap.put(session.getId(), session))
+                .onErrorResume(throwable -> sendMessage(session, "error", "Failed to save session").thenReturn(true))
                 .then(
                         session.receive()
                                 .doFinally(signalType -> sessionMap.remove(session.getId()))
@@ -149,7 +149,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     } else {
                         return sendMessage(session, "error", result.getErrorMessage());
                     }
-
+       
                 });
     }
 

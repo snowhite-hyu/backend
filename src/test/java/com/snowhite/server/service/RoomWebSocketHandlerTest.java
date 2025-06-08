@@ -204,124 +204,6 @@ class RoomWebSocketHandlerTest {
 
     }
 
-    @Test
-    void testErrorWhenRoomNotExist() throws Exception {
-        Long roomId = roomIdGenerator.incrementAndGet();
-
-        User joinUser = new User();
-        joinUser.setUsername("joinUser");
-        joinUser.setEmail("joinUser@example.com");
-        joinUser.setPassword("password");
-
-        userRepository.save(joinUser);
-
-        String createUri = "ws://localhost:" + port + "/ws/room?token=" + jwtToken;
-        String joinUri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(joinUser.getId());
-
-        Thread hostThread = new Thread(() -> {
-            client.execute(
-                    URI.create(createUri),
-                    session -> {
-
-                        ObjectNode payload = objectMapper.createObjectNode();
-                        payload.put("capacity", 4);
-                        payload.put("turnTime", 30);
-                        payload.put("roomName", "testRoom");
-
-                        ObjectNode request = objectMapper.createObjectNode();
-                        request.put("type", "create");
-                        request.set("payload", payload);
-
-                        session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
-
-                        return session.receive()
-                                .map(WebSocketMessage::getPayloadAsText)
-                                .doOnNext(msg -> {
-                                    try {
-                                        JsonNode root = objectMapper.readTree(msg);
-                                        String type = root.get("type").asText();
-
-                                        if (type.equals("created-room")) {
-                                            JsonNode payloadNode = root.get("payload");
-                                            Assertions.assertNotNull(payloadNode);
-
-                                            Assertions.assertEquals(roomId, payloadNode.get("roomId").asLong());
-                                            Assertions.assertEquals(testUser.getId(), payloadNode.get("masterPlayer").get("id").asLong());
-                                        }
-                                        else if (type.equals("room-users")) {
-
-                                            System.out.println(msg);
-
-                                            JsonNode payloadNode = root.get("payload");
-                                            Assertions.assertNotNull(payloadNode);
-                                            Assertions.assertTrue(payloadNode.isArray());
-
-                                            List<User> users = objectMapper.readValue(
-                                                    payloadNode.toString(),
-                                                    new TypeReference<List<User>>() {}
-                                            );
-
-                                            Assertions.assertTrue(
-                                                    users.stream().anyMatch(u -> u.getId() == testUser.getId())
-                                            );
-                                        }
-                                        else {Assertions.fail("unexpected type: " + type);}
-
-                                    } catch (JsonProcessingException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                })
-                                .take(1)
-                                .then();
-                    }
-            ).block();
-        });
-
-        hostThread.start();
-
-        Thread.sleep(3000);
-
-        client.execute(
-                URI.create(joinUri),
-                session -> {
-
-                    ObjectNode payload = objectMapper.createObjectNode();
-                    payload.put("roomId", roomId+1L);
-
-                    ObjectNode request = objectMapper.createObjectNode();
-                    request.put("type", "join");
-                    request.set("payload", payload);
-
-                    return session.send(Mono.just(session.textMessage(request.toString())))
-                            .thenMany(session.receive()
-                                    .map(WebSocketMessage::getPayloadAsText)
-                                    .doOnNext(msg -> {
-                                        try {
-
-                                            System.out.println("Received: " + msg);
-
-                                            JsonNode root = objectMapper.readTree(msg);
-                                            String type = root.get("type").asText();
-
-                                            Assertions.assertEquals("error", root.get("type").asText());
-
-                                            String errorMsg = root.get("payload").asText();
-                                            Assertions.assertTrue(
-                                                    errorMsg.contains("Room is not found"),
-                                                    "Actual error: " + errorMsg
-                                            );
-
-                                        } catch (JsonProcessingException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    })
-                            )
-                            .take(1)
-                            .then();
-                }
-        ).block();
-    }
-
 
     @Test
     void testJoinRoomAndBroadcast() throws Exception {
@@ -441,6 +323,124 @@ class RoomWebSocketHandlerTest {
 
                                             }
                                             else {Assertions.fail("unexpected type: " + type);}
+
+                                        } catch (JsonProcessingException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    })
+                            )
+                            .take(1)
+                            .then();
+                }
+        ).block();
+    }
+
+    @Test
+    void testErrorWhenRoomNotExist() throws Exception {
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        User joinUser = new User();
+        joinUser.setUsername("joinUser");
+        joinUser.setEmail("joinUser@example.com");
+        joinUser.setPassword("password");
+
+        userRepository.save(joinUser);
+
+        String createUri = "ws://localhost:" + port + "/ws/room?token=" + jwtToken;
+        String joinUri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(joinUser.getId());
+
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(createUri),
+                    session -> {
+
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
+
+                        ObjectNode request = objectMapper.createObjectNode();
+                        request.put("type", "create");
+                        request.set("payload", payload);
+
+                        session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(msg -> {
+                                    try {
+                                        JsonNode root = objectMapper.readTree(msg);
+                                        String type = root.get("type").asText();
+
+                                        if (type.equals("created-room")) {
+                                            JsonNode payloadNode = root.get("payload");
+                                            Assertions.assertNotNull(payloadNode);
+
+                                            Assertions.assertEquals(roomId, payloadNode.get("roomId").asLong());
+                                            Assertions.assertEquals(testUser.getId(), payloadNode.get("masterPlayer").get("id").asLong());
+                                        }
+                                        else if (type.equals("room-users")) {
+
+                                            System.out.println(msg);
+
+                                            JsonNode payloadNode = root.get("payload");
+                                            Assertions.assertNotNull(payloadNode);
+                                            Assertions.assertTrue(payloadNode.isArray());
+
+                                            List<User> users = objectMapper.readValue(
+                                                    payloadNode.toString(),
+                                                    new TypeReference<List<User>>() {}
+                                            );
+
+                                            Assertions.assertTrue(
+                                                    users.stream().anyMatch(u -> u.getId() == testUser.getId())
+                                            );
+                                        }
+                                        else {Assertions.fail("unexpected type: " + type);}
+
+                                    } catch (JsonProcessingException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .take(1)
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+
+        Thread.sleep(3000);
+
+        client.execute(
+                URI.create(joinUri),
+                session -> {
+
+                    ObjectNode payload = objectMapper.createObjectNode();
+                    payload.put("roomId", roomId+1L);
+
+                    ObjectNode request = objectMapper.createObjectNode();
+                    request.put("type", "join");
+                    request.set("payload", payload);
+
+                    return session.send(Mono.just(session.textMessage(request.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> {
+                                        try {
+
+                                            System.out.println("Received: " + msg);
+
+                                            JsonNode root = objectMapper.readTree(msg);
+                                            String type = root.get("type").asText();
+
+                                            Assertions.assertEquals("error", root.get("type").asText());
+
+                                            String errorMsg = root.get("payload").asText();
+                                            Assertions.assertTrue(
+                                                    errorMsg.contains("Room is not found"),
+                                                    "Actual error: " + errorMsg
+                                            );
 
                                         } catch (JsonProcessingException e) {
                                             throw new RuntimeException(e);

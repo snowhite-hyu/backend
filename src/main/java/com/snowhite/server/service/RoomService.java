@@ -7,10 +7,9 @@ import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.repository.UserRepository;
 import com.snowhite.server.web.dto.response.StartGameResponse;
 import com.snowhite.server.web.dto.response.GetRoomResponse;
-import com.snowhite.server.websocket.dto.RoomServiceResult;
+import com.snowhite.server.websocket.dto.RoomServiceResultDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
@@ -55,13 +54,13 @@ public class RoomService {
         this.gameService = gameService;
     }
 
-    public Mono<RoomServiceResult> createRoom(long userId, String roomName, int capacity, int turnTime) {
+    public Mono<RoomServiceResultDTO> createRoom(long userId, String roomName, int capacity, int turnTime) {
 
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optUser -> {
                     if (optUser.isEmpty()) {
-                        return Mono.just(RoomServiceResult.failure("User is not found"));
+                        return Mono.just(RoomServiceResultDTO.failure("User is not found"));
                     }
                     User user = optUser.get();
                     Long roomId = roomIdGenerator.incrementAndGet();
@@ -70,17 +69,17 @@ public class RoomService {
 
                     return reactiveRedisTemplateForRooms.opsForValue()
                             .set(ROOM_PREFIX + roomId, room)
-                            .thenReturn(RoomServiceResult.success(room));
+                            .thenReturn(RoomServiceResultDTO.success(room));
                 });
     }
 
-    public Mono<RoomServiceResult> joinRoom(long userId, Long roomId) {
+    public Mono<RoomServiceResultDTO> joinRoom(long userId, Long roomId) {
 
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optUser -> {
                     if (optUser.isEmpty()) {
-                        return Mono.just(RoomServiceResult.failure("User is not found"));
+                        return Mono.just(RoomServiceResultDTO.failure("User is not found"));
                     }
 
                     User user = optUser.get();
@@ -88,26 +87,26 @@ public class RoomService {
                             .flatMap(room -> {
 
                                 if (room.getUsers().stream().anyMatch(u -> u.getId() == userId)) {
-                                    return Mono.just(RoomServiceResult.failure("User is already in room"));
+                                    return Mono.just(RoomServiceResultDTO.failure("User is already in room"));
                                 }
 
                                 room.getUsers().add(user);
 
                                 return reactiveRedisTemplateForRooms.opsForValue()
                                         .set(ROOM_PREFIX + roomId, room)
-                                        .thenReturn(RoomServiceResult.success(room));
+                                        .thenReturn(RoomServiceResultDTO.success(room));
                             })
-                            .switchIfEmpty(Mono.just(RoomServiceResult.failure("Room is not found")));
+                            .switchIfEmpty(Mono.just(RoomServiceResultDTO.failure("Room is not found")));
                 });
     }
 
-    public Mono<RoomServiceResult> quitRoom(long userId, Long roomId, String sessionId) {
+    public Mono<RoomServiceResultDTO> quitRoom(long userId, Long roomId, String sessionId) {
 
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optUser -> {
                     if (optUser.isEmpty()) {
-                        return Mono.just(RoomServiceResult.failure("User is not found"));
+                        return Mono.just(RoomServiceResultDTO.failure("User is not found"));
                     }
 
                     User user = optUser.get();
@@ -116,7 +115,7 @@ public class RoomService {
                             .flatMap(room -> {
 
                                 if (room.getUsers().stream().noneMatch(u -> u.getId() == userId)) {
-                                    return Mono.just(RoomServiceResult.failure("User is not in room"));
+                                    return Mono.just(RoomServiceResultDTO.failure("User is not in room"));
                                 }
 
                                 boolean isMaster = userId == room.getMasterPlayer().getId();
@@ -124,7 +123,7 @@ public class RoomService {
                                 List<User> users = room.getUsers();
 
                                 if (isMaster && users.size() > 1) {
-                                    return Mono.just(RoomServiceResult.failure(
+                                    return Mono.just(RoomServiceResultDTO.failure(
                                             "Master player can not quit room while other users remain in room"
                                     ));
                                 }
@@ -142,9 +141,9 @@ public class RoomService {
 
                                 return updateRoomMono
                                         .then(reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + String.valueOf(userId)))
-                                        .thenReturn(RoomServiceResult.success(room));
+                                        .thenReturn(RoomServiceResultDTO.success(room));
                             })
-                            .switchIfEmpty(Mono.just(RoomServiceResult.failure("Room is not found")));
+                            .switchIfEmpty(Mono.just(RoomServiceResultDTO.failure("Room is not found")));
                 });
     }
 
