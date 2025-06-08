@@ -623,4 +623,161 @@ class RoomWebSocketHandlerTest {
 
     }
 
+
+    @Test
+    void testChatBroadcastToAllUsers() throws Exception {
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        // Create and save users
+        User hostUser = testUser;
+        User joinUser1 = new User();
+        joinUser1.setUsername("joinUser1");
+        joinUser1.setEmail("joinUser1@example.com");
+        joinUser1.setPassword("password1");
+        userRepository.save(joinUser1);
+
+        User joinUser2 = new User();
+        joinUser2.setUsername("joinUser2");
+        joinUser2.setEmail("joinUser2@example.com");
+        joinUser2.setPassword("password2");
+        userRepository.save(joinUser2);
+
+        String hostUri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(hostUser.getId());
+        String joinUri1 = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(joinUser1.getId());
+        String joinUri2 = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(joinUser2.getId());
+
+        // Host thread: create room and wait for chat message
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(hostUri),
+                    session -> {
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
+
+                        ObjectNode request = objectMapper.createObjectNode();
+                        request.put("type", "create");
+                        request.set("payload", payload);
+                        session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .filter(msg -> {
+                                    try {
+                                        return objectMapper.readTree(msg).get("type").asText().equals("chat");
+                                    } catch (Exception e) { return false; }
+                                })
+                                .doOnNext(msg -> {
+                                    try {
+                                        System.out.println("Host received chat: " + msg);
+                                        JsonNode root = objectMapper.readTree(msg);
+                                        JsonNode payloadNode = root.get("payload");
+                                        Assertions.assertNotNull(payloadNode);
+                                        Assertions.assertEquals("Hello, world!", payloadNode.get("message").asText());
+                                        JsonNode userNode = payloadNode.get("user");
+                                        Assertions.assertNotNull(userNode);
+                                        Assertions.assertEquals(joinUser2.getId(), userNode.get("id").asLong());
+                                        Assertions.assertEquals(joinUser2.getUsername(), userNode.get("username").asText());
+                                    } catch (JsonProcessingException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .take(1)
+                                .then();
+                    }
+            ).block();
+        });
+
+        // Join user1 thread: join room and wait for chat message
+        Thread joinThread1 = new Thread(() -> {
+            client.execute(
+                    URI.create(joinUri1),
+                    session -> {
+                        ObjectNode joinPayload = objectMapper.createObjectNode();
+                        joinPayload.put("roomId", roomId);
+                        ObjectNode joinRequest = objectMapper.createObjectNode();
+                        joinRequest.put("type", "join");
+                        joinRequest.set("payload", joinPayload);
+                        session.send(Mono.just(session.textMessage(joinRequest.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(
+                                        msg -> {
+                                            System.out.println("JoinUser1 received: " + msg);
+                                        }
+                                )
+                                .filter(msg -> {
+                                    try {
+                                        return objectMapper.readTree(msg).get("type").asText().equals("chat");
+                                    } catch (Exception e) { return false; }
+                                })
+                                .doOnNext(msg -> {
+                                    try {
+                                        System.out.println("JoinUser1 received chat: " + msg);
+                                        JsonNode root = objectMapper.readTree(msg);
+                                        JsonNode payloadNode = root.get("payload");
+                                        Assertions.assertNotNull(payloadNode);
+                                        Assertions.assertEquals("Hello, world!", payloadNode.get("message").asText());
+                                        JsonNode userNode = payloadNode.get("user");
+                                        Assertions.assertNotNull(userNode);
+                                        Assertions.assertEquals(joinUser2.getId(), userNode.get("id").asLong());
+                                        Assertions.assertEquals(joinUser2.getUsername(), userNode.get("username").asText());
+                                    } catch (JsonProcessingException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .take(1)
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+        Thread.sleep(1000);
+
+        joinThread1.start();
+        Thread.sleep(3000);
+
+        // Join user2: join room, then send chat message
+        client.execute(
+                URI.create(joinUri2),
+                session -> {
+                    ObjectNode joinPayload = objectMapper.createObjectNode();
+                    joinPayload.put("roomId", roomId);
+                    ObjectNode joinRequest = objectMapper.createObjectNode();
+                    joinRequest.put("type", "join");
+                    joinRequest.set("payload", joinPayload);
+                    session.send(Mono.just(session.textMessage(joinRequest.toString()))).subscribe();
+
+                    // Wait for join to complete, then send chat
+                    return session.receive()
+                            .map(WebSocketMessage::getPayloadAsText)
+                            .doOnNext(msg -> {
+                                try {
+                                    JsonNode root = objectMapper.readTree(msg);
+                                    if (root.get("type").asText().equals("joined-room")) {
+                                        // Send chat message after join
+                                        ObjectNode chatPayload = objectMapper.createObjectNode();
+                                        chatPayload.put("roomId", roomId);
+                                        chatPayload.put("message", "Hello, world!");
+                                        ObjectNode chatRequest = objectMapper.createObjectNode();
+                                        chatRequest.put("type", "chat");
+                                        chatRequest.set("payload", chatPayload);
+                                        session.send(Mono.just(session.textMessage(chatRequest.toString()))).subscribe();
+                                    }
+                                } catch (JsonProcessingException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            })
+                            .take(1)
+                            .then();
+                }
+        ).block();
+
+        hostThread.join();
+        joinThread1.join();
+    }
+
 }
