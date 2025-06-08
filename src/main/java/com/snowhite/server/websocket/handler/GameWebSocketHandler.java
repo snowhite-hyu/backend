@@ -137,9 +137,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     int cardId = payload.get("cardId").asInt();
                     int row = payload.get("row").asInt();
                     int column = payload.get("column").asInt();
-                    int isSpun = payload.get("isSpun").asInt();
+                    int isRotated = payload.get("isRotated").asInt();
 
-                    return handleUsePathCard(session, gameId, playerId, cardId, row, column, isSpun);
+                    return handleUsePathCard(session, gameId, playerId, cardId, row, column, isRotated);
                 }
 
                 case "get-card": {
@@ -266,9 +266,9 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 });
     }
 
-    public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId, Integer row, Integer column, Integer isSpun) {
+    public Mono<Void> handleUsePathCard(WebSocketSession session, Long gameId, Long playerId, Integer cardId, Integer row, Integer column, Integer isRotated) {
 
-        return gameService.processUsePathCard(gameId, playerId, cardId, row, column, isSpun)
+        return gameService.processUsePathCard(gameId, playerId, cardId, row, column, isRotated)
                 .flatMap(usePathCardResultDTO -> {
                     // 요청된 위치에 카드를 놓지 못하는 경우
                     if (!usePathCardResultDTO.isPossibleToPlace()) {

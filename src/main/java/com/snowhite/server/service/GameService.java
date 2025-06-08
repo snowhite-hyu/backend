@@ -357,20 +357,20 @@ public class GameService {
         }
     }
 
-    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isSpun) {
+    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isRotated) {
 
         return getGameByGameId(gameId)
-                .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isSpun)
+                .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isRotated)
                         .flatMap(isPossible -> {
                             boolean isDwarfWon = false;
                             boolean isRoundFinished = false;
                             boolean isGameFinished = false;
-                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isSpun);
+                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated);
 
                             // 카드를 놓을 수 없으면 바로 리턴
                             if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
                             // 굴 카드 배치 후 금 목적지 도달 여부
-                            if (game.placePathCardAndReturnRoundFinished(playerId, cardId, row, column, isSpun)) {
+                            if (game.placePathCardAndReturnRoundFinished(playerId, cardId, row, column, isRotated)) {
                                 isDwarfWon = true;
                                 isRoundFinished = true;
                             }
@@ -436,7 +436,7 @@ public class GameService {
                 );
     }
 
-    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isSpun) {
+    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isRotated) {
         Integer[][][] field = game.getField();
         return cardService.findCardByCardId(cardIdToPlace)
                 .map(card -> (PathCard) card)
@@ -456,15 +456,15 @@ public class GameService {
                         hasAdjacent = true;
                         if (field[row - 1][column][3] == 1) isConnectedFromStart = true;
                         int upperCardId = field[row - 1][column][0];
-                        int upperCardSpun = field[row - 1][column][1];
+                        int upperCardRotated = field[row - 1][column][1];
                         if (!destinationCardIds.contains(upperCardId)) {
                             upperCheck = cardService.findCardByCardId(upperCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isUpperOpened(isSpun));
+                                            return Mono.just(cardToPlace.isUpperOpened(isRotated));
                                         }
                                         PathCard upperCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isUpperOpened(isSpun) == upperCard.isLowerOpened(upperCardSpun));
+                                        return Mono.just(cardToPlace.isUpperOpened(isRotated) == upperCard.isLowerOpened(upperCardRotated));
                                     });
                         }
                     }
@@ -474,15 +474,15 @@ public class GameService {
                         hasAdjacent = true;
                         if (field[row + 1][column][3] == 1) isConnectedFromStart = true;
                         int lowerCardId = field[row + 1][column][0];
-                        int lowerCardSpun = field[row + 1][column][1];
+                        int lowerCardRotated = field[row + 1][column][1];
                         if (!destinationCardIds.contains(lowerCardId)) {
                             lowerCheck = cardService.findCardByCardId(lowerCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isLowerOpened(isSpun));
+                                            return Mono.just(cardToPlace.isLowerOpened(isRotated));
                                         }
                                         PathCard lowerCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isLowerOpened(isSpun) == lowerCard.isUpperOpened(lowerCardSpun));
+                                        return Mono.just(cardToPlace.isLowerOpened(isRotated) == lowerCard.isUpperOpened(lowerCardRotated));
                                     });
                         }
                     }
@@ -492,15 +492,15 @@ public class GameService {
                         hasAdjacent = true;
                         if (field[row][column - 1][3] == 1) isConnectedFromStart = true;
                         int leftCardId = field[row][column - 1][0];
-                        int leftCardSpun = field[row][column - 1][1];
+                        int leftCardRotated = field[row][column - 1][1];
                         if (!destinationCardIds.contains(leftCardId)) {
                             leftCheck = cardService.findCardByCardId(leftCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isLeftOpened(isSpun));
+                                            return Mono.just(cardToPlace.isLeftOpened(isRotated));
                                         }
                                         PathCard leftCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isLeftOpened(isSpun) == leftCard.isRightOpened(leftCardSpun));
+                                        return Mono.just(cardToPlace.isLeftOpened(isRotated) == leftCard.isRightOpened(leftCardRotated));
                                     });
                         }
                     }
@@ -510,15 +510,15 @@ public class GameService {
                         hasAdjacent = true;
                         if (field[row][column + 1][3] == 1) isConnectedFromStart = true;
                         int rightCardId = field[row][column + 1][0];
-                        int rightCardSpun = field[row][column + 1][1];
+                        int rightCardRotated = field[row][column + 1][1];
                         if (!destinationCardIds.contains(rightCardId)) {
                             rightCheck = cardService.findCardByCardId(rightCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isRightOpened(isSpun));
+                                            return Mono.just(cardToPlace.isRightOpened(isRotated));
                                         }
                                         PathCard rightCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isRightOpened(isSpun) == rightCard.isLeftOpened(rightCardSpun));
+                                        return Mono.just(cardToPlace.isRightOpened(isRotated) == rightCard.isLeftOpened(rightCardRotated));
                                     });
                         }
                     }
