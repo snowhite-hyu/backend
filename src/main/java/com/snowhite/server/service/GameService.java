@@ -530,7 +530,24 @@ public class GameService {
                     // 다 모아서 전부 연결 가능한 경우 true
                     return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
                             .map(results -> {
-                                return results.getT1() && results.getT2() && results.getT3() && results.getT4();
+                                boolean isPlaceable = results.getT1() && results.getT2() && results.getT3() && results.getT4();
+
+                                if (isPlaceable) {
+                                    // 굴 카드를 놓을 수 있는 경우 주변에 목적지 카드가 있는지 검사하고 공개
+                                    if (row > 0 && destinationCardIds.contains(field[row - 1][column][0])) {
+                                        game.showCard(row - 1, column);
+                                    }
+                                    if (row < field.length - 1 && destinationCardIds.contains(field[row + 1][column][0])) {
+                                        game.showCard(row + 1, column);
+                                    }
+                                    if (column > 0 && destinationCardIds.contains(field[row][column - 1][0])) {
+                                        game.showCard(row, column - 1);
+                                    }
+                                    if (column < field[0].length - 1 && destinationCardIds.contains(field[row][column + 1][0])) {
+                                        game.showCard(row, column + 1);
+                                    }
+                                }
+                                return isPlaceable;
                             });
                 });
     }

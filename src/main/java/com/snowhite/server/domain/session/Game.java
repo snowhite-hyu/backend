@@ -192,6 +192,10 @@ public class Game {
         return cardId;
     }
 
+    public void showCard(int row, int column) {
+        field[row][column][2] = 1;
+    }
+
     // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
     public boolean placePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isRotated) {
         placeCard(row, column, cardId, isRotated, 0, 1);
