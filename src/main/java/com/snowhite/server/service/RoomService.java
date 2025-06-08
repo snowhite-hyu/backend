@@ -87,6 +87,10 @@ public class RoomService {
                                     return Mono.just(RoomServiceResultDTO.failure("User is already in room"));
                                 }
 
+                                if (room.getUsers().size() >= room.getCapacity()) {
+                                    return Mono.just(RoomServiceResultDTO.failure("The room is full"));
+                                }
+
                                 room.getUsers().add(user);
 
                                 return reactiveRedisTemplateForRooms.opsForValue()
