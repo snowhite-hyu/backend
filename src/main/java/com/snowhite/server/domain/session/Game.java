@@ -214,6 +214,19 @@ public class Game {
 
     }
 
+    @JsonIgnore
+    public Player getWinnerPlayer() {
+        Player winner = null;
+        int maxGold = -1;
+        for (Player player : players) {
+            if (player.getGold() > maxGold) {
+                maxGold = player.getGold();
+                winner = player;
+            }
+        }
+        return winner;
+    }
+
     // 출발지, 목적지 카드 세팅
     private void initializeNewField() {
         clearField();

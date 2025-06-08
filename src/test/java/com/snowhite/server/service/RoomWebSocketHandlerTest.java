@@ -42,7 +42,8 @@ class RoomWebSocketHandlerTest {
     private UserRepository userRepository;
 
     @Autowired
-    private ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms;
+    @Qualifier("reactiveRedisTemplateForRooms")
+    private ReactiveRedisTemplate<String, Room> redisTemplateForRooms;
 
 
     @LocalServerPort
@@ -78,8 +79,8 @@ class RoomWebSocketHandlerTest {
 
         userRepository.deleteAll();
 
-        reactiveRedisTemplateForRooms.keys(ROOM_PREFIX + "*")
-                .flatMap(reactiveRedisTemplateForRooms::delete)
+        redisTemplateForRooms.keys("room:*")
+                .flatMap(redisTemplateForRooms::delete)
                 .then()
                 .block();
     }

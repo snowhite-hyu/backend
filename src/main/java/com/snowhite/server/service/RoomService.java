@@ -182,8 +182,36 @@ public class RoomService {
                     int turnTime = room.getTurnTime();
                     Game newGame = new Game(roomId, players, turnTime);
                     return gameService.setGameToRedis(roomId, newGame)
+                            .then(deleteRoomByRoomId(roomId))
                             .thenReturn(StartGameResponse.of(roomId));
                 });
+    }
+
+    public Mono<GetRoomResponse> getRooms() {
+
+        return scanRoomKeys()
+                .flatMap(roomId -> reactiveRedisTemplateForRoom.opsForValue().get(roomId))
+                .collectList()
+                .map(rooms -> {
+                    if (rooms == null) {
+                        rooms = Collections.emptyList();
+                    }
+                    return GetRoomResponse.of(rooms);
+                });
+    }
+
+    public Flux<String> scanRoomKeys() {
+        ScanOptions options =
+                ScanOptions.scanOptions().match("room:*").count(1000).build();
+        return reactiveRedisTemplateForRoom.scan(options);
+    }
+
+    public Mono<Room> getRoomByRoomId(Long roomId) {
+        return reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
+    }
+
+    public Mono<Boolean> deleteRoomByRoomId(Long roomId) {
+        return reactiveRedisTemplateForRoom.opsForValue().delete(ROOM_PREFIX + roomId);
     }
 
 }
