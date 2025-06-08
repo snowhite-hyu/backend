@@ -32,7 +32,6 @@ public class RoomService {
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
     private final UserRepository userRepository;
-    private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms;
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
@@ -40,7 +39,6 @@ public class RoomService {
 
     public RoomService (
             UserRepository userRepository,
-            ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame,
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")
@@ -48,7 +46,6 @@ public class RoomService {
             GameService gameService
     ) {
         this.userRepository = userRepository;
-        this.reactiveRedisTemplateForGame = reactiveRedisTemplateForGame;
         this.reactiveRedisTemplateForRooms = reactiveRedisTemplateForRooms;
         this.reactiveRedisTemplateForSessionIds = reactiveRedisTemplateForSessionIds;
         this.gameService = gameService;
@@ -182,8 +179,13 @@ public class RoomService {
                     int turnTime = room.getTurnTime();
                     Game newGame = new Game(roomId, players, turnTime);
                     return gameService.setGameToRedis(roomId, newGame)
+                            .then(deleteRoomByRoomId(roomId))
                             .thenReturn(StartGameResponse.of(roomId));
                 });
+    }
+
+    public Mono<Boolean> deleteRoomByRoomId(Long roomId) {
+        return reactiveRedisTemplateForRooms.opsForValue().delete(ROOM_PREFIX + roomId);
     }
 
 }
