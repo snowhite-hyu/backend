@@ -1,9 +1,12 @@
 package com.snowhite.server.domain.session;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.snowhite.server.domain.entity.PathCard;
+import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.*;
+import reactor.core.publisher.Mono;
 
 import java.util.*;
 
@@ -194,6 +197,61 @@ public class Game {
 
     public void showCard(int row, int column) {
         field[row][column][2] = 1;
+    }
+
+    public int getCardId(int row, int column) {
+        return field[row][column][0];
+    }
+
+    public void disconnectFromStart(int row, int column) {
+        field[row][column][3] = 0;
+    }
+
+    public boolean isConnectedFromStart(int row, int column) {
+        return field[row][column][3] == 1;
+    }
+
+    @JsonIgnore
+    public int getFieldRowLength() {
+        return field.length;
+    }
+
+    @JsonIgnore
+    public int getFieldColumnLength() {
+        return field[0].length;
+    }
+
+    public boolean isStillConnectedFromStart(int row, int column) {
+
+        boolean stillConnected = false;
+        boolean hasAdjacent = false;
+
+        if (row > 0 && field[row - 1][column][0] != -1) {
+            hasAdjacent = true;
+            if (field[row - 1][column][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (row < field.length - 1 && field[row + 1][column][0] != -1) {
+            hasAdjacent = true;
+            if (field[row + 1][column][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (column > 0 && field[row][column - 1][0] != -1) {
+            hasAdjacent = true;
+            if (field[row][column - 1][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (column < field[0].length - 1 && field[row][column + 1][0] != -1) {
+            hasAdjacent = true;
+            if (field[row][column + 1][3] == 1) {
+                stillConnected = true;
+            }
+        }
+
+        return hasAdjacent && stillConnected;
     }
 
     // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
