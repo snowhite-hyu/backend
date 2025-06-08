@@ -413,7 +413,7 @@ public class GameService {
                                                         RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
                                                 ));
                                     }
-                                            // 사보타지가 이긴 경우
+                                    // 사보타지가 이긴 경우
                                     Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
                                     List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
                                             .map(entry -> {
