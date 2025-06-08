@@ -1,4 +1,4 @@
-package com.snowhite.server.web.controller;
+package com.snowhite.server.service;
 
 import com.snowhite.server.domain.session.Room;
 import com.snowhite.server.domain.entity.User;
@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RoomControllerTest {
+class LobbyServiceTest {
 
     @Autowired
     private WebTestClient client;
@@ -41,8 +41,6 @@ class RoomControllerTest {
 
     @BeforeEach
     void setUp() {
-
-        //테스트용 방 2개 생성 및 Redis에 저장
 
         Long roomId1 = 3L;
         Long roomId2 = 17L;
@@ -67,8 +65,6 @@ class RoomControllerTest {
 
     @AfterEach
     void tearDown() {
-
-        //테스트 종료 후 Redis 데이터 삭제
         redisTemplateForRooms.keys("room:*")
                 .flatMap(redisTemplateForRooms::delete)
                 .then()
@@ -79,8 +75,6 @@ class RoomControllerTest {
 
     @Test
      void getRooms_returnsRoomList() {
-
-        //when & then: /api/rooms 호출 시 방 목록이 정상 반환되는지 검증
 
         webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
@@ -126,13 +120,10 @@ class RoomControllerTest {
     @Test
     void getRooms_returnsEmptyList_whenNoRoomsExist() {
 
-        //given: Redis에 방이 없는 상태로 초기화
         redisTemplateForRooms.keys("room:*")
                 .flatMap(redisTemplateForRooms::delete)
                 .blockLast();
 
-
-        //when & then: /api/rooms 호출 시 빈 목록이 반환되는지 검증
         webTestClient.get().uri("/api/rooms")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
