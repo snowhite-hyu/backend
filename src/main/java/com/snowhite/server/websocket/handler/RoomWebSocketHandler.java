@@ -12,8 +12,6 @@ import com.snowhite.server.service.RoomService;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.reactivestreams.Publisher;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
@@ -27,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -118,6 +115,14 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     return handleStartGame(session, roomId);
                 }
 
+                case "chat": {
+                    long userId = jwtProvider.extractUserIdFromToken(token);
+                    Long roomId = Long.parseLong(node.get("roomId").asText());
+                    String message = node.get("message").asText();
+
+                    return handleChatMessage(session, userId, roomId, message);
+                }
+
                 default:
                 {
                     return sendMessage(session, "error", "unsupported action: " + action);
@@ -144,7 +149,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     } else {
                         return sendMessage(session, "error", result.getErrorMessage());
                     }
-
+       
                 });
     }
 
@@ -225,6 +230,28 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                             });
                 })
                 .then();
+    }
+
+    private Mono<Void> handleChatMessage(WebSocketSession session, long userId, Long roomId, String message) {
+
+        return roomService.getRoomByRoomId(roomId)
+                .flatMap(room -> {
+                    User sender = room.getUsers().stream()
+                            .filter(u -> u.getId() == userId)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (sender == null) {
+                        return sendMessage(session, "error", "User is not in room");
+                    }
+
+                    // payload: { user: User, message: String }
+                    com.fasterxml.jackson.databind.node.ObjectNode chatPayload = objectMapper.createObjectNode();
+                    chatPayload.set("user", objectMapper.valueToTree(sender));
+                    chatPayload.put("message", message);
+                    return broadcastMessageToRoom(roomId, "chat", chatPayload);
+                })
+                .switchIfEmpty(sendMessage(session, "error", "Room is not found"));
     }
 
 }
