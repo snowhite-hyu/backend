@@ -360,34 +360,61 @@ public class GameService {
     public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isFlipped) {
 
         return getGameByGameId(gameId)
-                .flatMap(game -> isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
-                        .flatMap(isPossible -> {
-                            boolean isDwarfWon = false;
-                            boolean isRoundFinished = false;
-                            boolean isGameFinished = false;
-                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
+                .flatMap(game -> {
+                    boolean hasBrokenTool = game.findPlayer(playerId)
+                            .map(Player::hasBrokenTool)
+                            .orElse(true);
 
-                            // 카드를 놓을 수 없으면 바로 리턴
-                            if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
-                            // 굴 카드 배치 후 금 목적지 도달 여부
-                            if (game.usePathCardAndReturnRoundFinished(playerId, cardId, row, column, isFlipped)) {
-                                isDwarfWon = true;
-                                isRoundFinished = true;
-                            }
+                    return isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
+                            .flatMap(isPossible -> {
 
-                            game.drawAndGiveCardToPlayer(playerId);
-                            if (game.nextTurnAndReturnRoundFinished()) {
-                                isRoundFinished = true;
-                            }
+                                // 망가진 도구가 없음 + 굴 카드 놓을 수 있는 자리여야 배치 가능
+                                boolean realIsPossible = !hasBrokenTool && isPossible;
 
-                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
-                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                boolean isDwarfWon = false;
+                                boolean isRoundFinished = false;
+                                boolean isGameFinished = false;
+                                FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
 
-                            // 라운드가 끝났으면 역할 공개 필요
-                            if (isRoundFinished) {
-                                // 광부가 이긴 경우
-                                if (isDwarfWon) {
-                                    Map<Long, Integer> distributedGoldInfo = game.distributeGoldToDwarf(playerId);
+                                // 카드를 놓을 수 없으면 바로 리턴
+                                if (!realIsPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
+                                // 굴 카드 배치 후 금 목적지 도달 여부
+                                if (game.usePathCardAndReturnRoundFinished(playerId, cardId, row, column, isFlipped)) {
+                                    isDwarfWon = true;
+                                    isRoundFinished = true;
+                                }
+
+                                game.drawAndGiveCardToPlayer(playerId);
+                                if (game.nextTurnAndReturnRoundFinished()) {
+                                    isRoundFinished = true;
+                                }
+
+                                SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+
+                                // 라운드가 끝났으면 역할 공개 필요
+                                if (isRoundFinished) {
+                                    // 광부가 이긴 경우
+                                    if (isDwarfWon) {
+                                        Map<Long, Integer> distributedGoldInfo = game.distributeGoldToDwarf(playerId);
+                                        List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                                .map(entry -> {
+                                                    long id = entry.getKey();
+                                                    int gainedGold = entry.getValue();
+                                                    Player player = findPlayerByPlayerId(game, id);
+                                                    return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                                }).toList();
+
+                                        return setGameToRedis(gameId, game)
+                                                .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                        fieldResponse,
+                                                        secretPlayerResponse,
+                                                        publicPlayerResponse,
+                                                        RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
+                                                ));
+                                    }
+                                            // 사보타지가 이긴 경우
+                                    Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
                                     List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
                                             .map(entry -> {
                                                 long id = entry.getKey();
@@ -401,39 +428,21 @@ public class GameService {
                                                     fieldResponse,
                                                     secretPlayerResponse,
                                                     publicPlayerResponse,
-                                                    RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
+                                                    RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
                                             ));
                                 }
-                                // 사보타지가 이긴 경우
-                                Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
-                                List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
-                                        .map(entry -> {
-                                            long id = entry.getKey();
-                                            int gainedGold = entry.getValue();
-                                            Player player = findPlayerByPlayerId(game, id);
-                                            return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
-                                        }).toList();
 
+                                TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
+                                // 라운드가 끝나지 않았으면 역할 공개는 불필요
                                 return setGameToRedis(gameId, game)
-                                        .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                        .thenReturn(UsePathCardResultDTO.forNormalResult(
+                                                turnChangedResponse,
                                                 fieldResponse,
                                                 secretPlayerResponse,
-                                                publicPlayerResponse,
-                                                RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
+                                                publicPlayerResponse
                                         ));
-                            }
-
-                            TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
-                            // 라운드가 끝나지 않았으면 역할 공개는 불필요
-                            return setGameToRedis(gameId, game)
-                                    .thenReturn(UsePathCardResultDTO.forNormalResult(
-                                            turnChangedResponse,
-                                            fieldResponse,
-                                            secretPlayerResponse,
-                                            publicPlayerResponse
-                                    ));
-                        })
-                );
+                            });
+                });
     }
 
     public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {
