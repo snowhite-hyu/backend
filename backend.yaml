@@ -23,6 +23,17 @@ spec:
             - name: backend-env
               mountPath: /backend-env
               readOnly: true
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health-check
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: backend-env
           configMap:
