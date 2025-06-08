@@ -32,7 +32,6 @@ public class RoomService {
     private static final AtomicLong roomIdGenerator = new AtomicLong(0);
 
     private final UserRepository userRepository;
-    private final ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame;
     private final ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms;
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplateForSessionIds;
 
@@ -40,7 +39,6 @@ public class RoomService {
 
     public RoomService (
             UserRepository userRepository,
-            ReactiveRedisTemplate<String, Game> reactiveRedisTemplateForGame,
             @Qualifier("reactiveRedisTemplateForRooms")
             ReactiveRedisTemplate<String, Room> reactiveRedisTemplateForRooms,
             @Qualifier("reactiveRedisTemplateForSessionIds")
@@ -48,7 +46,6 @@ public class RoomService {
             GameService gameService
     ) {
         this.userRepository = userRepository;
-        this.reactiveRedisTemplateForGame = reactiveRedisTemplateForGame;
         this.reactiveRedisTemplateForRooms = reactiveRedisTemplateForRooms;
         this.reactiveRedisTemplateForSessionIds = reactiveRedisTemplateForSessionIds;
         this.gameService = gameService;
@@ -187,31 +184,8 @@ public class RoomService {
                 });
     }
 
-    public Mono<GetRoomResponse> getRooms() {
-
-        return scanRoomKeys()
-                .flatMap(roomId -> reactiveRedisTemplateForRoom.opsForValue().get(roomId))
-                .collectList()
-                .map(rooms -> {
-                    if (rooms == null) {
-                        rooms = Collections.emptyList();
-                    }
-                    return GetRoomResponse.of(rooms);
-                });
-    }
-
-    public Flux<String> scanRoomKeys() {
-        ScanOptions options =
-                ScanOptions.scanOptions().match("room:*").count(1000).build();
-        return reactiveRedisTemplateForRoom.scan(options);
-    }
-
-    public Mono<Room> getRoomByRoomId(Long roomId) {
-        return reactiveRedisTemplateForRoom.opsForValue().get(ROOM_PREFIX + roomId);
-    }
-
     public Mono<Boolean> deleteRoomByRoomId(Long roomId) {
-        return reactiveRedisTemplateForRoom.opsForValue().delete(ROOM_PREFIX + roomId);
+        return reactiveRedisTemplateForRooms.opsForValue().delete(ROOM_PREFIX + roomId);
     }
 
 }
