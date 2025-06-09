@@ -240,7 +240,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 })
                 .onErrorResume(e -> {
                     log.error("<rockfall card 처리 중 에러 발생>", e);
-                    return sendSimpleMessage(session, "error");
+                    return sendMessage(session, "error", "error");
                 });
     }
 
@@ -266,7 +266,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 })
                 .onErrorResume(e -> {
                     log.error("<map card 처리 중 에러 발생>", e);
-                    return sendSimpleMessage(session, "error");
+                    return sendMessage(session, "error", "error");
                 });
     }
 
@@ -291,7 +291,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
-                    return sendSimpleMessage(session, "error");
+                    return sendMessage(session, "error", "error");
                 });
     }
 
@@ -309,7 +309,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
-                    return sendSimpleMessage(session, "error");
+                    return sendMessage(session, "error", "error");
                 });
     }
 
@@ -383,21 +383,6 @@ public class GameWebSocketHandler implements WebSocketHandler {
                             });
                 })
                 .then();
-    }
-
-    // 단순 문자열 전송
-    public Mono<Void> sendSimpleMessage(WebSocketSession session, String message) {
-
-        SimpleMessageResponse simpleMessageResponse = SimpleMessageResponse.of(message);
-        try {
-            String payload = objectMapper.writeValueAsString(simpleMessageResponse);
-            return session.send(Mono.just(
-                    session.textMessage(payload)
-            ));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            return Mono.error(e);   // TODO: 예외 처리
-        }
     }
 
     // type, payload 동시에 직렬화 후 메시지 전송
