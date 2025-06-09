@@ -1,44 +1,48 @@
 package com.snowhite.server.websocket.dto;
 
-import com.snowhite.server.websocket.dto.response.*;
+import com.snowhite.server.websocket.dto.response.PublicPlayerResponse;
+import com.snowhite.server.websocket.dto.response.RoundFinishedResponse;
+import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
+import com.snowhite.server.websocket.dto.response.TurnChangedResponse;
 
-
-public record UseMapCardResultDTO(
+public record UseRepairCardResultDTO(
         TurnChangedResponse turnChangedResponse,
         RoundFinishedResponse roundFinishedResponse,
         SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
-        CardIdResponse cardIdResponse,
+        PublicPlayerResponse publicTargetPlayerResponse,
         boolean isRoundFinished
+
 ) {
-    public static UseMapCardResultDTO forNormalResult(
+    public static UseRepairCardResultDTO forNormalResult(
             TurnChangedResponse turnChangedResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
-            CardIdResponse cardIdResponse
+            PublicPlayerResponse publicTargetPlayerResponse
     ) {
-        return new UseMapCardResultDTO(
+        return new UseRepairCardResultDTO(
                 turnChangedResponse,
                 null,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                cardIdResponse,
+                publicTargetPlayerResponse,
                 false
         );
     }
-    public static UseMapCardResultDTO forRoundFinishedResult(
+
+    public static UseRepairCardResultDTO forRoundFinishedResult(
             RoundFinishedResponse roundFinishedResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
-            CardIdResponse cardIdResponse,
+            PublicPlayerResponse publicTargetPlayerResponse,
             boolean isRoundFinished
     ) {
-        return new UseMapCardResultDTO(
+        return new UseRepairCardResultDTO(
                 null,
                 roundFinishedResponse,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                cardIdResponse,
+                publicTargetPlayerResponse,
                 isRoundFinished
         );
     }
