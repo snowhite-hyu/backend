@@ -669,7 +669,7 @@ public class GameService {
                 });
     }
 
-    public Mono<UseBrokenCardResultDTO> useBrokenCard(BrokenCardUseRequest request) {
+    public Mono<UseRepairCardResultDTO> useBrokenCard(BrokenCardUseRequest request) {
         Long gameId = request.gameId();
         Long playerId = request.playerId();
         int cardId = request.cardId();
@@ -688,9 +688,11 @@ public class GameService {
                         return findCardByCardId(cardId)
                                 .switchIfEmpty(Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST)))
                                 .flatMap(card -> {
+                                    log.info("[Broken] 카드 조회 성공 - cardId: {}", cardId);
                                     try {
-                                        log.info("[Broken] 카드 조회 성공 - cardId: {}", cardId);
+
                                         ActionCard brokenCard = (ActionCard) card;
+
                                         List<PlayerState> brokenStates = getBrokenStates(brokenCard.getActionCardType());
                                         log.info("[Broken] 부여할 상태 목록 - brokenStates: {}", brokenStates);
 
@@ -705,6 +707,8 @@ public class GameService {
                                         player.removeCard(cardId);
                                         log.info("[Broken] 상태 부여 및 카드 제거 완료 - playerId: {}, targetPlayerId: {}, cardId: {}",
                                                 playerId, targetPlayerId, cardId);
+
+                                        log.info("[Broken] targetPlayerState 전체 출력: {}", targetPlayer.getState());
                                         game.drawAndGiveCardToPlayer(playerId);
                                         log.info("[Broken] 카드 한장 가져오기");
 
@@ -743,6 +747,17 @@ public class GameService {
                                                             publicTargetPlayerResponse
                                                     ));
                                         }
+                                    } catch (Exception e) {
+                                        log.error("[Broken] 카드 처리 중 예외 발생", e);
+                                        return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
+                                    }
+                                })
+                                .onErrorResume(e -> {
+                                    if (e instanceof BusinessException) return Mono.error(e);
+                                    log.error("[Broken] 카드 조회 중 예외 발생", e);
+                                    return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
+                                });
+
                     } catch (BusinessException e) {
                         return Mono.error(e);
                     } catch (Exception e) {
@@ -756,4 +771,5 @@ public class GameService {
                     return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
                 });
     }
+
 }
