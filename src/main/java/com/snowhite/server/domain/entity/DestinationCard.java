@@ -16,16 +16,14 @@ public class DestinationCard extends Card{
     private boolean left_open;
     private boolean right_open;
     private boolean middle_open;
-    private boolean is_gold;
 
-    public DestinationCard(Integer id, String name, Boolean up_open, Boolean down_open, Boolean left_open, Boolean right_open, Boolean middle_open, Boolean is_gold) {
+    public DestinationCard(Integer id, String name, Boolean up_open, Boolean down_open, Boolean left_open, Boolean right_open, Boolean middle_open) {
         super(id, name, CardType.DESTINATION);
         this.up_open = up_open;
         this.down_open = down_open;
         this.left_open = left_open;
         this.right_open = right_open;
         this.middle_open = middle_open;
-        this.is_gold = is_gold;
     }
 
     public boolean isUpperOpened(int isRotated) {

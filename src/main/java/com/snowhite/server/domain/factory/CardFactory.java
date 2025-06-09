@@ -42,10 +42,9 @@ public class CardFactory {
             Boolean down_open,
             Boolean left_open,
             Boolean right_open,
-            Boolean middle_open,
-            Boolean isGold
+            Boolean middle_open
     ) {
-        return new DestinationCard(id, name, up_open, down_open, left_open, right_open, middle_open, isGold);
+        return new DestinationCard(id, name, up_open, down_open, left_open, right_open, middle_open);
     }
 
 }
