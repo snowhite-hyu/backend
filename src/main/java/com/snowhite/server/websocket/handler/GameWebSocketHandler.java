@@ -236,17 +236,17 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useMapCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    log.info("dest card id in handler: {}", response.destCardId());
+                    log.info("dest card id in handler: {}", response.cardIdResponse());
                     if (response.isRoundFinished()) {
                         return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                                .then(sendMessage(session, "Dest-Card-Id", response.destCardId()))
+                                .then(sendMessage(session, "Dest-Card-Id", response.cardIdResponse()))
                                 .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
                                 .then(Mono.delay(Duration.ofSeconds(5)))
                                 // 역할 및 금덩이 분배 결과 공개
                                 .then(broadcastMessageToGame(gameId, "Round-Finished", response.roundFinishedResponse()));
                     } else {
                         return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                                .then(sendMessage(session, "Dest-Card-Id", response.destCardId()))
+                                .then(sendMessage(session, "Dest-Card-Id", response.cardIdResponse()))
                                 .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
                                 .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
                     }

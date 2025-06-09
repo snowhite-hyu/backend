@@ -349,7 +349,7 @@ public class GameService {
                                                 RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
                                                 secretPlayerResponse,
                                                 publicPlayerResponse,
-                                                destCarId,
+                                                CardIdResponse.of(destCarId),
                                                 true
                                         ));
                             } else {
@@ -359,7 +359,7 @@ public class GameService {
                                                 TurnChangedResponse.of(game.getCurrentTurnPlayerId()),
                                                 secretPlayerResponse,
                                                 publicPlayerResponse,
-                                                destCarId
+                                                CardIdResponse.of(destCarId)
                                         ));
                             }
                         } catch (BusinessException e) {
