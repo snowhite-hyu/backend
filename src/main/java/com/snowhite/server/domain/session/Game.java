@@ -1,12 +1,9 @@
 package com.snowhite.server.domain.session;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.snowhite.server.domain.entity.PathCard;
-import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.enums.GameState;
 import com.snowhite.server.domain.enums.PlayerRole;
 import lombok.*;
-import reactor.core.publisher.Mono;
 
 import java.util.*;
 
@@ -527,6 +524,47 @@ public class Game {
                 .filter(player -> player.getPlayerRole() == PlayerRole.SABOTEUR)
                 .toList();
     }
+
+    public void refreshFieldConnectedFromStart() {
+        int rowLength = getFieldRowLength();
+        int columnLength = getFieldColumnLength();
+
+        // 모든 카드의 isConnectedFromStart 초기화
+        for (int r = 0; r < rowLength; r++) {
+            for (int c = 0; c < columnLength; c++) {
+                if (field[r][c][0] != -1) {
+                    field[r][c][3] = 0; // 연결 초기화
+                }
+            }
+        }
+
+        // 시작 카드부터 dfs 시작
+        dfsAndSetIsConnected(3, 0);
+    }
+
+    private void dfsAndSetIsConnected(int row, int column) {
+
+        if (row < 0 || row >= field.length || column < 0 || column >= field[0].length) return; // dfs 종료 조건
+        if (field[row][column][0] == -1 || field[row][column][3] == 1) return; // 카드가 없거나 이미 방문해서 연결 표시 했거나
+
+        field[row][column][3] = 1; // 연결 표시
+
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
+
+        for (int[] direction : directions) {
+            int adjacentRow = row + direction[0];
+            int adjacentColumn = column + direction[1];
+
+            // 범위 벗어나면 패스
+            if (adjacentRow < 0 || adjacentRow >= field.length || adjacentColumn < 0 || adjacentColumn >= field[0].length) continue;
+            // 카드 없으면 패스
+            if (field[adjacentRow][adjacentColumn][0] == -1) continue;
+
+            dfsAndSetIsConnected(adjacentRow, adjacentColumn);
+        }
+    }
+
+
 
     public int isFlipped(int row, int col) {
         return field[row][col][2];

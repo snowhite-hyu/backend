@@ -246,26 +246,8 @@ public class GameService {
                         game.removeCard(row, column);
                         player.removeCard(cardId);
 
-                        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
-                        for (int[] direction : directions) {
-                            int adjacentRow = row + direction[0];
-                            int adjacentColumn = column + direction[1];
-
-                            // 범위 검사
-                            if (adjacentRow < 0
-                                    || adjacentRow > game.getFieldRowLength() - 1
-                                    || adjacentColumn < 0
-                                    || adjacentColumn > game.getFieldColumnLength() - 1) {
-                                continue;
-                            }
-
-                            if (game.getCardId(adjacentRow, adjacentColumn) != -1) {
-                                // 여전히 시작점과 연결되어 있는지 검사
-                                if (!game.isStillConnectedFromStart(adjacentRow, adjacentColumn)) {
-                                    game.disconnectFromStart(adjacentRow, adjacentColumn);
-                                }
-                            }
-                        }
+                        // 시작점과 연결여부 초기화
+                        game.refreshFieldConnectedFromStart();
 
                         log.info("[Rockfall] 카드 제거 완료 - cardId: {}, 위치: ({}, {})", cardId, row, column);
                         game.drawAndGiveCardToPlayer(playerId);
