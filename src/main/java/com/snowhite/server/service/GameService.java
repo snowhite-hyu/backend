@@ -801,6 +801,9 @@ public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId,
 
     public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isRotated) {
         Integer[][][] field = game.getField();
+
+        if (field[row][column][0] != -1) return Mono.just(false);
+
         return cardService.findCardByCardId(cardIdToPlace)
                 .map(card -> (PathCard) card)
                 .flatMap(cardToPlace -> {
