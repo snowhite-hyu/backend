@@ -286,8 +286,8 @@ public class Game {
     }
 
     // Path Card 사용 후 핸드에서 제거, 목적지 근처 여부 리턴
-    public boolean placePathCardAndCheckAdjacentToDestination(long playerId, int cardId, int row, int column, int isRotated) {
-        placeCard(row, column, cardId, isRotated, 0, 1);
+    public boolean placePathCardAndCheckAdjacentToDestination(long playerId, int cardId, int row, int column, int isRotated, int isConnectedFromStart) {
+        placeCard(row, column, cardId, isRotated, 0, isConnectedFromStart);
         connectAdjacentFromStart(row, column);
         findPlayer(playerId).get().dropCard(cardId);
 
