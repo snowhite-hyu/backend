@@ -279,8 +279,8 @@ public class Game {
         int goldRow = 1;
         int goldColumn = 8;
 
-        if (field[3][8][0] == 63) goldColumn = 3;
-        if (field[5][8][0] == 63) goldColumn = 5;
+        if (field[3][8][0] == 63) goldRow = 3;
+        if (field[5][8][0] == 63) goldRow = 5;
 
         return field[goldRow][goldColumn][3] == 1;
     }
