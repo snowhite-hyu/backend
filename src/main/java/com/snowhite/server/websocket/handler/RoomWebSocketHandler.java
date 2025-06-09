@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Component
@@ -157,7 +158,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         return roomService.joinRoom(userId, roomId)
                 .flatMap(result -> {
                     if (result.isSuccess()) {
-                        return broadcastToRoom(userId, result.getRoom())
+                        return broadcastToRoom(result.getRoom().getUsers().stream().filter(u -> u.getId() != userId), "room-users", result.getRoom().getUsers())
                                 .then(sendMessage(session, "joined-room", result.getRoom()));
                     } else {
                         return sendMessage(session, "error", result.getErrorMessage());
@@ -166,7 +167,6 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     }
 
     private Mono<Void> handleQuitRoom(WebSocketSession session, long userId, Long roomId) {
-
         return roomService.quitRoom(userId, roomId, session.getId())
                 .flatMap(result -> {
                     if (!result.isSuccess()) {
@@ -176,29 +176,57 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                     Room room = result.getRoom();
                     boolean isMaster = room.getMasterPlayer().getId() == userId;
 
-                    Mono<Void> msgMono = isMaster
-                            ? sendMessage(session, "quit-success", null)
-                            : broadcastToRoom(userId, room).then(sendMessage(session, "quit-success", null));
-
-                    return msgMono.then(Mono.defer(() -> sessionMap.remove(session.getId()).close().then()));
+                    if (isMaster) {
+                        // 1. 모든 유저에게 quit-success
+                        Mono<Void> broadcast = broadcastToRoom(room.getUsers().stream(), "quit-success", null);
+                        // 2. broadcast 후, 모든 유저의 세션/redis 삭제
+                        Mono<Void> cleanup = Mono.when(
+                                room.getUsers().stream().map(user ->
+                                        reactiveRedisTemplateForSessionIds.opsForValue().get(ROOM_SESSION_PREFIX + user.getId())
+                                                .flatMap(sid -> {
+                                                    Mono<Boolean> redisDel = reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + user.getId()).thenReturn(Boolean.TRUE);
+                                                    Mono<Void> close = Mono.fromRunnable(() -> {
+                                                        if (sid != null) {
+                                                            WebSocketSession ws = sessionMap.remove(sid);
+                                                            if (ws != null && ws.isOpen()) {
+                                                                ws.close().subscribe();
+                                                            }
+                                                        }
+                                                    });
+                                                    return redisDel.then(close);
+                                                })
+                                ).collect(Collectors.toList())
+                        );
+                        return broadcast.then(cleanup);
+                    } else {
+                        // 1. 본인에게 quit-success
+                        Mono<Void> toSelf = sendMessage(session, "quit-success", null);
+                        Mono<Void> broadcast = broadcastToRoom(room.getUsers().stream(), "room-users", room.getUsers());
+                        // 2. 메시지 전송 후, 본인 세션/redis 삭제
+                        Mono<Boolean> redisDel = reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + userId).thenReturn(Boolean.TRUE);
+                        Mono<Void> close = Mono.fromRunnable(() -> {
+                            sessionMap.remove(session.getId());
+                            if (session.isOpen()) {
+                                session.close().subscribe();
+                            }
+                        });
+                        return toSelf.then(broadcast).then(redisDel).then(close);
+                    }
                 });
     }
 
-    private Mono<Void> broadcastToRoom(Long userId, Room room) {
-
-        List<Mono<Void>> broadcasts = room.getUsers().stream()
-                .filter(user -> user.getId() != userId)
+    private Mono<Void> broadcastToRoom(Stream<User> users, String type, Object payload) {
+        List<Mono<Void>> broadcasts = users
                 .map(user -> reactiveRedisTemplateForSessionIds.opsForValue().get(ROOM_SESSION_PREFIX + user.getId())
                         .flatMap(sessionId -> {
                             WebSocketSession userSession = sessionMap.get(sessionId);
                             if (userSession != null && userSession.isOpen()) {
-                                return sendMessage(userSession, "room-users", room.getUsers());
+                                return sendMessage(userSession, type, payload);
                             } else {
                                 return Mono.empty();
                             }
                         }))
                 .collect(Collectors.toList());
-
         return Flux.concat(broadcasts).then();
     }
 
