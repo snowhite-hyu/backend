@@ -329,30 +329,38 @@ public class GameService {
                             game.drawAndGiveCardToPlayer(playerId);
                             log.info("[Map] 카드 한장 가져오기");
 
-                            return saveGameToRedis(game)
-                                    .flatMap(success -> {
-                                        if (success) {
-                                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
-                                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
-                                            TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
-                                            UseMapCardResultDTO response = new UseMapCardResultDTO(
-                                                    turnChangedResponse,
-                                                    secretPlayerResponse,
-                                                    publicPlayerResponse
-                                            );
-                                            log.info("[Map] 카드 사용 완료 - 응답 생성");
-                                            return Mono.just(response);
-                                        } else {
-                                            return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
-                                        }
-                                    })
-                                    .onErrorResume(e -> {
-                                        // saveGameToRedis 에서 발생한 예외
-                                        if (e instanceof BusinessException) return Mono.error(e);
-                                        log.error("[Map] 게임 Redis 저장 실패");
-                                        return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-                                    });
+                            SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                            PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
 
+                            boolean isRoundFinished = false;
+                            if (game.nextTurnAndReturnRoundFinished()) {
+                                isRoundFinished = true;
+                            }
+                            if(isRoundFinished) {
+                                // 라운드 종료되면 RoundFinishedResponse 반환
+                                // 사보타지가 이긴 경우만 존재
+                                Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                                List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                        .map(entry -> {
+                                            long id = entry.getKey();
+                                            int gainedGold = entry.getValue();
+                                            return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                        }).toList();
+                                return setGameToRedis(gameId, game)
+                                        .thenReturn(UseMapCardResultDTO.forRoundFinishedResult(
+                                                RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
+                                                secretPlayerResponse,
+                                                publicPlayerResponse
+                                        ));
+                            } else {
+                                // 라운드가 종료되지 않으면 TurnChangedResonse 반환
+                                return setGameToRedis(gameId, game)
+                                        .thenReturn(UseMapCardResultDTO.forNormalResult(
+                                                TurnChangedResponse.of(game.getCurrentTurnPlayerId()),
+                                                secretPlayerResponse,
+                                                publicPlayerResponse
+                                        ));
+                            }
                         } catch (BusinessException e) {
                             return Mono.error(e);
                         } catch (Exception e) {

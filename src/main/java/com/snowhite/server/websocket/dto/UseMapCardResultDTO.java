@@ -1,13 +1,12 @@
 package com.snowhite.server.websocket.dto;
 
-import com.snowhite.server.websocket.dto.response.PublicPlayerResponse;
-import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
-import com.snowhite.server.websocket.dto.response.TurnChangedResponse;
+import com.snowhite.server.websocket.dto.response.*;
 
 import java.util.List;
 
 public record UseMapCardResultDTO(
         TurnChangedResponse turnChangedResponse,
+        RoundFinishedResponse roundFinishedResponse,
         SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse
 ) {
@@ -18,6 +17,19 @@ public record UseMapCardResultDTO(
     ) {
         return new UseMapCardResultDTO(
                 turnChangedResponse,
+                null,
+                secretPlayerResponse,
+                publicPlayerResponse
+        );
+    }
+    public static UseMapCardResultDTO forRoundFinishedResult(
+            RoundFinishedResponse roundFinishedResponse,
+            SecretPlayerResponse secretPlayerResponse,
+            PublicPlayerResponse publicPlayerResponse
+    ) {
+        return new UseMapCardResultDTO(
+                null,
+                roundFinishedResponse,
                 secretPlayerResponse,
                 publicPlayerResponse
         );
