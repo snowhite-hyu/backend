@@ -177,7 +177,6 @@ public class RoomService {
                     int turnTime = room.getTurnTime();
                     Game newGame = new Game(roomId, players, turnTime);
                     return gameService.setGameToRedis(roomId, newGame)
-                            .then(deleteRoomByRoomId(roomId))
                             .thenReturn(StartGameResponse.of(roomId));
                 });
     }
