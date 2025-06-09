@@ -330,7 +330,7 @@ public class GameService {
                                 log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                             }
-                            if (game.isFlipped(row, column) == 1) {
+                            if (game.isFlipped(row, column) == 0) {
                                 log.warn("[Map] 해당 위치에 카드가 이미 공개됨 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
                             }
