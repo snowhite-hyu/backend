@@ -322,9 +322,19 @@ public class GameWebSocketHandler implements WebSocketHandler {
                         return sendMessage(session, "Place-PathCard-Failed", usePathCardResultDTO.fieldResponse());
                     }
 
+                    // 목적지 카드를 공개해야 하는 경우 추가로 Field-Changed 전송
+                    Mono<Void> revealDestinationMonos = Mono.empty();
+                    if (usePathCardResultDTO.shouldRevealDestination()) {
+                        List<Mono<Void>> revealSends = usePathCardResultDTO.destinationResponseList().stream()
+                                .map(destinationFieldResponse -> broadcastMessageToGame(gameId, "Field-Changed", destinationFieldResponse))
+                                .toList();
+                        revealDestinationMonos = Mono.when(revealSends);
+                    }
+
                     // 카드를 놓은 후 라운드가 끝나는 경우
                     if (usePathCardResultDTO.isRoundFinished()) {
                         return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
+                                .then(revealDestinationMonos)
                                 .then(sendMessage(session, "Player-Info", usePathCardResultDTO.secretPlayerResponse()))
                                 .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
                                 .then(Mono.delay(Duration.ofSeconds(5)))
@@ -334,6 +344,7 @@ public class GameWebSocketHandler implements WebSocketHandler {
 
                     // 카드를 놓은 후 다음 턴 진행
                     return broadcastMessageToGame(gameId, "Field-Changed", usePathCardResultDTO.fieldResponse())
+                            .then(revealDestinationMonos)
                             .then(sendMessage(session, "Player-Info", usePathCardResultDTO.secretPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", usePathCardResultDTO.publicPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Turn-Changed", usePathCardResultDTO.turnChangedResponse()));

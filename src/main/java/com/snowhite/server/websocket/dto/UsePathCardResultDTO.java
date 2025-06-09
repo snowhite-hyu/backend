@@ -7,12 +7,14 @@ import java.util.List;
 public record UsePathCardResultDTO(
         boolean isPossibleToPlace,
         boolean isRoundFinished,
-        boolean isGameFinished,
+        boolean shouldRevealDestination,
         TurnChangedResponse turnChangedResponse,
         FieldResponse fieldResponse,
         SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
-        RoundFinishedResponse roundFinishedResponse
+        RoundFinishedResponse roundFinishedResponse,
+        List<FieldResponse> destinationResponseList
+
 ) {
 
     public static UsePathCardResultDTO forPlacePathCardFailedResult(FieldResponse fieldResponse) {
@@ -24,32 +26,39 @@ public record UsePathCardResultDTO(
                 fieldResponse,
                 null,
                 null,
-                null);
+                null,
+                null
+        );
     }
 
     public static UsePathCardResultDTO forRoundFinishedResult(
+            boolean shouldRevealDestination,
             FieldResponse fieldResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
-            RoundFinishedResponse roundFinishedResponse) {
+            RoundFinishedResponse roundFinishedResponse,
+            List<FieldResponse> destinationResponseList) {
 
         return new UsePathCardResultDTO(
-                true,
+                shouldRevealDestination,
                 true,
                 false,
                 null,
                 fieldResponse,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                roundFinishedResponse
+                roundFinishedResponse,
+                destinationResponseList
         );
     }
 
     public static UsePathCardResultDTO forNormalResult(
+            boolean shouldRevealDestination,
             TurnChangedResponse turnChangedResponse,
             FieldResponse fieldResponse,
             SecretPlayerResponse secretPlayerResponse,
-            PublicPlayerResponse publicPlayerResponse
+            PublicPlayerResponse publicPlayerResponse,
+            List<FieldResponse> destinationResponseList
     ) {
         return new UsePathCardResultDTO(
                 true,
@@ -59,7 +68,8 @@ public record UsePathCardResultDTO(
                 fieldResponse,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                null
+                null,
+                destinationResponseList
         );
     }
 
