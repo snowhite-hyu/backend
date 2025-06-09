@@ -517,8 +517,11 @@ public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId,
                         .orElse(true);
 
                 return isPossibleToPlacePathCard(game, cardId, row, column, isRotated)
-                        .flatMap(isPossible -> {
-                            boolean realIsPossible = !hasBrokenTool && isPossible;
+                        .flatMap(isPossibleDTO -> {
+                            boolean realIsPossible = !hasBrokenTool && isPossibleDTO.isPossible();
+                            int isMiddleOpened;
+                            if (isPossibleDTO.isMiddleOpened()) isMiddleOpened = 1;
+                            else isMiddleOpened = 0;
 
                             FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated, 0);
                             List<FieldResponse> destinationResponseList = new ArrayList<>();
@@ -528,7 +531,7 @@ public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId,
                                 return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
                             }
 
-                            if (game.placePathCardAndCheckAdjacentToDestination(playerId, cardId, row, column, isRotated)) {
+                            if (game.placePathCardAndCheckAdjacentToDestination(playerId, cardId, row, column, isRotated, isMiddleOpened)) {
                                 return getDestinationPositionsToReveal(game, cardId, row, column, isRotated)
                                         .flatMapMany(Flux::fromIterable)
                                         .concatMap(destinationPosition -> {
@@ -799,14 +802,17 @@ public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId,
                 });
     }
 
-    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isRotated) {
+    public Mono<IsPossibleToPlacePathCardResultDTO> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isRotated) {
         Integer[][][] field = game.getField();
 
-        if (field[row][column][0] != -1) return Mono.just(false);
+        if (field[row][column][0] != -1) return Mono.just(IsPossibleToPlacePathCardResultDTO.of(false, false));
 
         return cardService.findCardByCardId(cardIdToPlace)
                 .map(card -> (PathCard) card)
                 .flatMap(cardToPlace -> {
+
+                    boolean isMiddleOpened = cardToPlace.isMiddle_open();
+
                     Mono<Boolean> upperCheck = Mono.just(true);
                     Mono<Boolean> lowerCheck = Mono.just(true);
                     Mono<Boolean> leftCheck = Mono.just(true);
@@ -891,11 +897,12 @@ public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId,
 
                     // 상하좌우 카드가 없거나 시작점으로부터 연결이 불가능하면 배치 불가
                     if (!hasAdjacent || !isConnectedFromStart) {
-                        return Mono.just(false);
+                        return Mono.just(IsPossibleToPlacePathCardResultDTO.of(false, isMiddleOpened));
                     }
                     // 다 모아서 전부 연결 가능한 경우 true
                     return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
-                            .map(results -> results.getT1() && results.getT2() && results.getT3() && results.getT4());
+                            .map(results -> results.getT1() && results.getT2() && results.getT3() && results.getT4())
+                            .map(isPossible -> IsPossibleToPlacePathCardResultDTO.of(isPossible, isMiddleOpened));
                 });
     }
 
