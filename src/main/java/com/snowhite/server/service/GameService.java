@@ -276,7 +276,7 @@ public class GameService {
                                     if (success) {
                                         SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                                         PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
-                                        FieldResponse fieldResponse = FieldResponse.of(-1, row, column, game.getField()[row][column][1]);
+                                        FieldResponse fieldResponse = FieldResponse.of(-1, row, column, game.getCardId(row, column), game.isFlipped(row, column));
                                         TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
                                         UseRockfallCardResultDTO response = new UseRockfallCardResultDTO(
                                                 turnChangedResponse,
@@ -327,7 +327,7 @@ public class GameService {
                                 log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                             }
-                            if (game.isFlipped(row, column)) {
+                            if (game.isFlipped(row, column) == 1) {
                                 log.warn("[Map] 해당 위치에 카드가 이미 공개됨 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
                             }
@@ -387,7 +387,7 @@ public class GameService {
                             boolean isDwarfWon = false;
                             boolean isRoundFinished = false;
                             boolean isGameFinished = false;
-                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated);
+                            FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated, 0);
 
                             // 카드를 놓을 수 없으면 바로 리턴
                             if (!isPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));

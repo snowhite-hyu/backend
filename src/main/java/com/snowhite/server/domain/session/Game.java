@@ -269,10 +269,11 @@ public class Game {
             goldRow = 5;
         }
 
-        if ((row == goldRow - 1 && column == goldColumn) ||
-                (row == goldRow + 1 && column == goldColumn) ||
-                (row == goldRow && column == goldColumn - 1) ||
-                (row == goldRow && column == goldColumn + 1)) {
+        if ((row == goldRow - 1 && column == goldColumn)
+                || (row == goldRow + 1 && column == goldColumn)
+                || (row == goldRow && column == goldColumn - 1)
+                || (row == goldRow && column == goldColumn + 1)
+        ) {
             return true;
         }
 
@@ -527,8 +528,8 @@ public class Game {
                 .toList();
     }
 
-    public boolean isFlipped(int row, int col) {
-        return field[row][col][2] == 1;
+    public int isFlipped(int row, int col) {
+        return field[row][col][2];
     }
 
     public Integer getPathCardIdAt(Integer row, Integer col) {
