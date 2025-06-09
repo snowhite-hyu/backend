@@ -26,6 +26,7 @@ import reactor.core.publisher.Mono;
 import org.slf4j.Logger;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -185,7 +186,18 @@ public class GameWebSocketHandler implements WebSocketHandler {
                         return broadcastMessageToGame(gameId, "Game-Finished", nextRoundResultDTO.winnerPublicPlayerResponse());
                     }
                     // 게임을 끝나지 않고 다음 라운드 시작
-                    return broadcastMessageToGame(gameId, "Round-Started", nextRoundResultDTO.gameResponse());
+                    List<Mono<Void>> personalSends = nextRoundResultDTO.secretPlayerResponseList().stream()
+                            .map(secret -> {
+                                long playerId = secret.playerId();
+                                return reactiveRedisTemplateForSessionIds.opsForValue().get(GAME_SESSION_PREFIX + playerId)
+                                        .flatMap(sessionId -> {
+                                            WebSocketSession sessionToSend = sessionMap.get(sessionId);
+                                            return sendMessage(sessionToSend, "Player-Info", secret);
+                                        });
+                            })
+                            .toList();
+                    return broadcastMessageToGame(gameId, "Round-Started", nextRoundResultDTO.gameResponse())
+                            .then(Mono.when(personalSends));
                 });
     }
 
