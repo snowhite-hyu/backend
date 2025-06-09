@@ -604,8 +604,8 @@ public class Game {
     }
 
     public Integer getPathCardIdAt(Integer row, Integer col) {
-        // 시작, 목적지 카드인 경우
-        if ((row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;
+        // 시작, 목적지 카드나 카드가 없는 경우
+        if (getCardId(row, col) == -1 || (row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;
         else return field[row][col][0];
     }
 
