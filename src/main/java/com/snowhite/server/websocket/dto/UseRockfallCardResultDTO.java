@@ -7,7 +7,8 @@ public record UseRockfallCardResultDTO(
     RoundFinishedResponse roundFinishedResponse,
     SecretPlayerResponse secretPlayerResponse,
     PublicPlayerResponse publicPlayerResponse,
-    FieldResponse fieldResponse
+    FieldResponse fieldResponse,
+    boolean isRoundFinished
 ) {
     public static UseRockfallCardResultDTO forNormalResult(
             TurnChangedResponse turnChangedResponse,
@@ -20,7 +21,8 @@ public record UseRockfallCardResultDTO(
                 null,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                fieldResponse
+                fieldResponse,
+                false
         );
     }
 
@@ -28,14 +30,16 @@ public record UseRockfallCardResultDTO(
             RoundFinishedResponse roundFinishedResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
-            FieldResponse fieldResponse
+            FieldResponse fieldResponse,
+            boolean isRoundFinished
     ) {
         return new UseRockfallCardResultDTO(
                 null,
                 roundFinishedResponse,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                fieldResponse
+                fieldResponse,
+                isRoundFinished
         );
     }
 }

@@ -272,7 +272,8 @@ public class GameService {
                                             RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
                                             secretPlayerResponse,
                                             publicPlayerResponse,
-                                            fieldResponse
+                                            fieldResponse,
+                                            true
                                     ));
                         } else {
                             // 라운드가 종료되지 않으면 TurnChangedResonse 반환
@@ -315,7 +316,8 @@ public class GameService {
                         try {
                             Player player = findPlayerByPlayerId(game, playerId);
                             log.info("[Map] 플레이어 조회 성공 - playerId: {}", playerId);
-                            int destCarId = game.getDestCardIdAt(row, column);
+                            Integer destCarId = game.getDestCardIdAt(row, column);
+                            log.info("[Map] 목적지 카드 id: {}", destCarId);
                             if (destCarId == -1) {
                                 log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
@@ -351,7 +353,9 @@ public class GameService {
                                         .thenReturn(UseMapCardResultDTO.forRoundFinishedResult(
                                                 RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
                                                 secretPlayerResponse,
-                                                publicPlayerResponse
+                                                publicPlayerResponse,
+                                                destCarId,
+                                                true
                                         ));
                             } else {
                                 // 라운드가 종료되지 않으면 TurnChangedResonse 반환
@@ -632,7 +636,8 @@ public class GameService {
                                                             RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
                                                             secretPlayerResponse,
                                                             publicPlayerResponse,
-                                                            publicTargetPlayerResponse
+                                                            publicTargetPlayerResponse,
+                                                            true
                                                     ));
                                         } else {
                                             // 라운드가 종료되지 않으면 TurnChangedResonse 반환
@@ -735,7 +740,8 @@ public class GameService {
                                                             RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
                                                             secretPlayerResponse,
                                                             publicPlayerResponse,
-                                                            publicTargetPlayerResponse
+                                                            publicTargetPlayerResponse,
+                                                            true
                                                     ));
                                         } else {
                                             // 라운드가 종료되지 않으면 TurnChangedResonse 반환

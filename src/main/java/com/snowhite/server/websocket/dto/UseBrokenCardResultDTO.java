@@ -10,7 +10,8 @@ public record UseBrokenCardResultDTO(
         RoundFinishedResponse roundFinishedResponse,
         SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
-        PublicPlayerResponse publicTargetPlayerResponse
+        PublicPlayerResponse publicTargetPlayerResponse,
+        boolean isRoundFinished
 
 ) {
     public static UseRepairCardResultDTO forNormalResult(
@@ -24,7 +25,8 @@ public record UseBrokenCardResultDTO(
                 null,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                publicTargetPlayerResponse
+                publicTargetPlayerResponse,
+                false
         );
     }
 
@@ -32,14 +34,16 @@ public record UseBrokenCardResultDTO(
             RoundFinishedResponse roundFinishedResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
-            PublicPlayerResponse publicTargetPlayerResponse
+            PublicPlayerResponse publicTargetPlayerResponse,
+            boolean isRoundFinished
     ) {
         return new UseBrokenCardResultDTO(
                 null,
                 roundFinishedResponse,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                publicTargetPlayerResponse
+                publicTargetPlayerResponse,
+                isRoundFinished
         );
     }
 }

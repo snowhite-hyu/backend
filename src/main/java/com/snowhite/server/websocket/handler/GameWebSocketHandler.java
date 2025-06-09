@@ -211,10 +211,20 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRockfallCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    return broadcastMessageToGame(gameId, "Field-Changed", response.fieldResponse())
-                            .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    if (response.isRoundFinished()) {
+                        return broadcastMessageToGame(gameId, "Field-Changed", response.fieldResponse())
+                                .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(Mono.delay(Duration.ofSeconds(5)))
+                                // 역할 및 금덩이 분배 결과 공개
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", response.roundFinishedResponse()));
+                    } else {
+                        return broadcastMessageToGame(gameId, "Field-Changed", response.fieldResponse())
+                                .then(sendMessage(session, "Player-Info", response.secretPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    }
+
                 })
                 .onErrorResume(e -> {
                     log.error("<rockfall card 처리 중 에러 발생>", e);
@@ -226,9 +236,21 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useMapCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    log.info("dest card id in handler: {}", response.destCardId());
+                    if (response.isRoundFinished()) {
+                        return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                                .then(sendMessage(session, "Dest-Card-Id", response.destCardId()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(Mono.delay(Duration.ofSeconds(5)))
+                                // 역할 및 금덩이 분배 결과 공개
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", response.roundFinishedResponse()));
+                    } else {
+                        return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                                .then(sendMessage(session, "Dest-Card-Id", response.destCardId()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    }
+
                 })
                 .onErrorResume(e -> {
                     log.error("<map card 처리 중 에러 발생>", e);
@@ -240,10 +262,20 @@ public class GameWebSocketHandler implements WebSocketHandler {
         return gameService.useRepairCard(request)
                 .flatMap(response -> {
                     Long gameId = request.gameId();
-                    return sendMessage(session, "Player-Info", response.secretPlayerResponse())
-                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    if (response.isRoundFinished()) {
+                        return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
+                                .then(Mono.delay(Duration.ofSeconds(5)))
+                                // 역할 및 금덩이 분배 결과 공개
+                                .then(broadcastMessageToGame(gameId, "Round-Finished", response.roundFinishedResponse()));
+                    } else {
+                        return sendMessage(session, "Player-Info", response.secretPlayerResponse())
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
+                                .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                    }
+
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
@@ -258,7 +290,10 @@ public class GameWebSocketHandler implements WebSocketHandler {
                     return sendMessage(session, "Player-Info", response.secretPlayerResponse())
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicPlayerResponse()))
                             .then(broadcastMessageToGame(gameId, "Player-Info-Changed", response.publicTargetPlayerResponse()))
-                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()));
+                            .then(broadcastMessageToGame(gameId, "Turn-Changed", response.turnChangedResponse()))
+                            .then(Mono.delay(Duration.ofSeconds(5)))
+                            // 역할 및 금덩이 분배 결과 공개
+                            .then(broadcastMessageToGame(gameId, "Round-Finished", response.roundFinishedResponse()));
                 })
                 .onErrorResume(e -> {
                     log.error("<repair card 처리 중 에러 발생>", e);
