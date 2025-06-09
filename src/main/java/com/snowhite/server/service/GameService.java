@@ -144,8 +144,14 @@ public class GameService {
                         return deleteGameFromRedis(gameId)
                                 .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
                     }
+                    GameResponse gameResponse = GameResponse.from(game);
+                    List<SecretPlayerResponse> secretPlayerResponseList = game.getPlayers()
+                            .stream()
+                            .map(SecretPlayerResponse::from)
+                            .toList();
+
                     return setGameToRedis(gameId, game)
-                            .thenReturn(NextRoundResultDTO.forRoundStart(GameResponse.from(game)));
+                            .thenReturn(NextRoundResultDTO.forRoundStart(gameResponse, secretPlayerResponseList));
                 });
     }
 
