@@ -609,32 +609,41 @@ public class GameService {
                                         game.drawAndGiveCardToPlayer(playerId);
                                         log.info("[Repair] 카드 한장 가져오기");
 
-                                        return saveGameToRedis(game)
-                                                .flatMap(success -> {
-                                                    if (success) {
-                                                        log.info("[Repair] Redis 저장 완료");
-                                                        SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
-                                                        PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
-                                                        PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
-                                                        TurnChangedResponse turnChangedResponse = TurnChangedResponse.of(game.getCurrentTurnPlayerId());
-                                                        UseRepairCardDTO response = new UseRepairCardDTO(
-                                                                turnChangedResponse,
-                                                                secretPlayerResponse,
-                                                                publicPlayerResponse,
-                                                                publicTargetPlayerResponse
-                                                        );
-                                                        return Mono.just(response);
-                                                    } else {
-                                                        log.error("[Repair] Redis 저장 실패");
-                                                        return Mono.error(new BusinessException(WsErrorStatus.INTERNAL_ERROR));
-                                                    }
-                                                })
-                                                .onErrorResume(e -> {
-                                                    if (e instanceof BusinessException) return Mono.error(e);
-                                                    log.error("[Repair] Redis 저장 중 예외 발생", e);
-                                                    return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
-                                                });
+                                        SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
+                                        PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
+                                        PublicPlayerResponse publicTargetPlayerResponse = PublicPlayerResponse.from(game.findPlayer(targetPlayerId).get());
 
+                                        boolean isRoundFinished = false;
+                                        if (game.nextTurnAndReturnRoundFinished()) {
+                                            isRoundFinished = true;
+                                        }
+                                        if(isRoundFinished) {
+                                            // 라운드 종료되면 RoundFinishedResponse 반환
+                                            // 사보타지가 이긴 경우만 존재
+                                            Map<Long, Integer> distributedGoldInfo = game.distributeGoldToSaboteur();
+                                            List<RoundFinishedPlayerDTO> playerList = distributedGoldInfo.entrySet().stream()
+                                                    .map(entry -> {
+                                                        long id = entry.getKey();
+                                                        int gainedGold = entry.getValue();
+                                                        return RoundFinishedPlayerDTO.of(id, player.getPlayerName(), player.getPlayerRole(), gainedGold);
+                                                    }).toList();
+                                            return setGameToRedis(gameId, game)
+                                                    .thenReturn(UseRepairCardDTO.forRoundFinishedResult(
+                                                            RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
+                                                            secretPlayerResponse,
+                                                            publicPlayerResponse,
+                                                            publicTargetPlayerResponse
+                                                    ));
+                                        } else {
+                                            // 라운드가 종료되지 않으면 TurnChangedResonse 반환
+                                            return setGameToRedis(gameId, game)
+                                                    .thenReturn(UseRepairCardDTO.forNormalResult(
+                                                            TurnChangedResponse.of(game.getCurrentTurnPlayerId()),
+                                                            secretPlayerResponse,
+                                                            publicPlayerResponse,
+                                                            publicTargetPlayerResponse
+                                                    ));
+                                        }
                                     } catch (Exception e) {
                                         log.error("[Repair] 카드 처리 중 예외 발생", e);
                                         return Mono.error(new WebSocketException(WsErrorStatus.INTERNAL_ERROR.getErrorReason()));
