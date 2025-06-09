@@ -197,11 +197,6 @@ public class GameService {
                 .switchIfEmpty(Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST)));
     }
 
-    private Mono<Boolean> saveGameToRedis(Game game) {
-        return reactiveRedisTemplateForGame.opsForValue()
-                .set(GAME_PREFIX + game.getGameId(), game);
-    }
-
     private List<PlayerState> getRepairStates(ActionCardType type) {
         return switch (type) {
             case REPAIR_PICKAXE -> List.of(PlayerState.BROKEN_PICKAXE);
