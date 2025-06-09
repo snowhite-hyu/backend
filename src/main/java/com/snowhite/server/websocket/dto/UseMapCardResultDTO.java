@@ -8,18 +8,21 @@ public record UseMapCardResultDTO(
         TurnChangedResponse turnChangedResponse,
         RoundFinishedResponse roundFinishedResponse,
         SecretPlayerResponse secretPlayerResponse,
-        PublicPlayerResponse publicPlayerResponse
+        PublicPlayerResponse publicPlayerResponse,
+        Integer cardId
 ) {
     public static UseMapCardResultDTO forNormalResult(
             TurnChangedResponse turnChangedResponse,
             SecretPlayerResponse secretPlayerResponse,
-            PublicPlayerResponse publicPlayerResponse
+            PublicPlayerResponse publicPlayerResponse,
+            int cardId
     ) {
         return new UseMapCardResultDTO(
                 turnChangedResponse,
                 null,
                 secretPlayerResponse,
-                publicPlayerResponse
+                publicPlayerResponse,
+                cardId
         );
     }
     public static UseMapCardResultDTO forRoundFinishedResult(
@@ -31,7 +34,8 @@ public record UseMapCardResultDTO(
                 null,
                 roundFinishedResponse,
                 secretPlayerResponse,
-                publicPlayerResponse
+                publicPlayerResponse,
+                null
         );
     }
 }

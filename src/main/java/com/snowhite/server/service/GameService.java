@@ -315,11 +315,12 @@ public class GameService {
                         try {
                             Player player = findPlayerByPlayerId(game, playerId);
                             log.info("[Map] 플레이어 조회 성공 - playerId: {}", playerId);
-                            
-                            if (game.getDestCardIdAt(row, column) == -1) {
+                            int destCarId = game.getDestCardIdAt(row, column);
+                            if (destCarId == -1) {
                                 log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                             }
+                            // TODO: field 변경에 따른 isFlipped 인덱싱 수정
                             if (game.isFlipped(row, column)) {
                                 log.warn("[Map] 해당 위치에 카드가 이미 공개됨 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
@@ -358,7 +359,8 @@ public class GameService {
                                         .thenReturn(UseMapCardResultDTO.forNormalResult(
                                                 TurnChangedResponse.of(game.getCurrentTurnPlayerId()),
                                                 secretPlayerResponse,
-                                                publicPlayerResponse
+                                                publicPlayerResponse,
+                                                destCarId
                                         ));
                             }
                         } catch (BusinessException e) {
