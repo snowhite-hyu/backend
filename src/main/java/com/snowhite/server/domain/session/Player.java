@@ -65,6 +65,12 @@ public class Player {
         }
     }
 
+    public boolean hasBrokenTool() {
+        return hasState(PlayerState.BROKEN_LANTERN)
+                || hasState(PlayerState.BROKEN_PICKAXE)
+                || hasState(PlayerState.BROKEN_MINECART);
+    }
+
     public boolean hasState(PlayerState state) {
         return this.state.contains(state);
     }

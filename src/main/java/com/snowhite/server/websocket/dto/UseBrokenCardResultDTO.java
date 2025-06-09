@@ -1,31 +1,49 @@
 package com.snowhite.server.websocket.dto;
 
-import com.snowhite.server.domain.enums.PlayerState;
 import com.snowhite.server.websocket.dto.response.PublicPlayerResponse;
+import com.snowhite.server.websocket.dto.response.RoundFinishedResponse;
 import com.snowhite.server.websocket.dto.response.SecretPlayerResponse;
 import com.snowhite.server.websocket.dto.response.TurnChangedResponse;
 
-import java.util.EnumSet;
-import java.util.List;
-
 public record UseBrokenCardResultDTO(
         TurnChangedResponse turnChangedResponse,
+        RoundFinishedResponse roundFinishedResponse,
         SecretPlayerResponse secretPlayerResponse,
         PublicPlayerResponse publicPlayerResponse,
-        PublicPlayerResponse publicTargetPlayerResponse
+        PublicPlayerResponse publicTargetPlayerResponse,
+        boolean isRoundFinished
 
 ) {
-    public static UseRepairCardDTO forNormalResult(
+    public static UseRepairCardResultDTO forNormalResult(
             TurnChangedResponse turnChangedResponse,
             SecretPlayerResponse secretPlayerResponse,
             PublicPlayerResponse publicPlayerResponse,
             PublicPlayerResponse publicTargetPlayerResponse
     ) {
-        return new UseRepairCardDTO(
+        return new UseRepairCardResultDTO(
                 turnChangedResponse,
+                null,
                 secretPlayerResponse,
                 publicPlayerResponse,
-                publicTargetPlayerResponse
+                publicTargetPlayerResponse,
+                false
+        );
+    }
+
+    public static UseBrokenCardResultDTO forRoundFinishedResult(
+            RoundFinishedResponse roundFinishedResponse,
+            SecretPlayerResponse secretPlayerResponse,
+            PublicPlayerResponse publicPlayerResponse,
+            PublicPlayerResponse publicTargetPlayerResponse,
+            boolean isRoundFinished
+    ) {
+        return new UseBrokenCardResultDTO(
+                null,
+                roundFinishedResponse,
+                secretPlayerResponse,
+                publicPlayerResponse,
+                publicTargetPlayerResponse,
+                isRoundFinished
         );
     }
 }

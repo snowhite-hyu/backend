@@ -87,6 +87,10 @@ public class RoomService {
                                     return Mono.just(RoomServiceResultDTO.failure("User is already in room"));
                                 }
 
+                                if (room.getUsers().size() >= room.getCapacity()) {
+                                    return Mono.just(RoomServiceResultDTO.failure("The room is full"));
+                                }
+
                                 room.getUsers().add(user);
 
                                 return reactiveRedisTemplateForRooms.opsForValue()
@@ -98,7 +102,6 @@ public class RoomService {
     }
 
     public Mono<RoomServiceResultDTO> quitRoom(long userId, Long roomId, String sessionId) {
-
         return Mono.fromCallable(() -> userRepository.findById(userId))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(optUser -> {
@@ -110,34 +113,29 @@ public class RoomService {
 
                     return reactiveRedisTemplateForRooms.opsForValue().get(ROOM_PREFIX + roomId)
                             .flatMap(room -> {
-
                                 if (room.getUsers().stream().noneMatch(u -> u.getId() == userId)) {
                                     return Mono.just(RoomServiceResultDTO.failure("User is not in room"));
                                 }
 
                                 boolean isMaster = userId == room.getMasterPlayer().getId();
-
                                 List<User> users = room.getUsers();
+                                List<User> updatedUsers;
 
-                                if (isMaster && users.size() > 1) {
-                                    return Mono.just(RoomServiceResultDTO.failure(
-                                            "Master player can not quit room while other users remain in room"
-                                    ));
+                                if (isMaster) {
+                                    updatedUsers = new ArrayList<>(users);
+                                } else {
+                                    updatedUsers = users.stream()
+                                            .filter(u -> u.getId() != userId)
+                                            .collect(Collectors.toList());
                                 }
-
-                                List<User> updatedUsers = room.getUsers()
-                                        .stream()
-                                        .filter(u -> u.getId() != userId)
-                                        .collect(Collectors.toList());
 
                                 room.setUsers(updatedUsers);
 
-                                Mono<Boolean> updateRoomMono = (isMaster && updatedUsers.isEmpty())
+                                Mono<Boolean> updateRoomMono = isMaster
                                         ? reactiveRedisTemplateForRooms.delete(ROOM_PREFIX + roomId).thenReturn(true)
                                         : reactiveRedisTemplateForRooms.opsForValue().set(ROOM_PREFIX + roomId, room);
 
                                 return updateRoomMono
-                                        .then(reactiveRedisTemplateForSessionIds.delete(ROOM_SESSION_PREFIX + String.valueOf(userId)))
                                         .thenReturn(RoomServiceResultDTO.success(room));
                             })
                             .switchIfEmpty(Mono.just(RoomServiceResultDTO.failure("Room is not found")));

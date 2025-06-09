@@ -570,6 +570,10 @@ public class Game {
         return field[row][col][2];
     }
 
+    public int isRotated(int row, int col) {
+        return field[row][col][1];
+    }
+
     public Integer getPathCardIdAt(Integer row, Integer col) {
         // 시작, 목적지 카드인 경우
         if ((row == 3 && col == 0) || (row == 1 && col == 8) || (row == 3 && col == 8) || (row == 5 && col == 8)) return -1;

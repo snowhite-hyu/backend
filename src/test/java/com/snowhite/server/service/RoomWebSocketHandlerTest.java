@@ -25,6 +25,7 @@ import java.time.Duration;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -779,6 +780,250 @@ class RoomWebSocketHandlerTest {
 
         hostThread.join();
         joinThread1.join();
+    }
+
+    @Test
+    void testRoomNotDeletedWhenUser1Quits() throws Exception {
+        
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        // 방장(Host)와 유저N 생성 및 저장
+        User hostUser = testUser;
+
+        User user1 = new User();
+        user1.setUsername("user1");
+        user1.setEmail("user1@example.com");
+        user1.setPassword("password1");
+        userRepository.save(user1);
+
+        String hostUri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(hostUser.getId());
+        String user1Uri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(user1.getId());
+
+        // 방장 스레드: 참가/퇴장 알림 수신
+        AtomicBoolean quitReceived = new AtomicBoolean(false);
+
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(hostUri),
+                    session -> {
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
+
+                        ObjectNode request = objectMapper.createObjectNode();
+                        request.put("type", "create");
+                        request.set("payload", payload);
+                        session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(msg -> {
+                                    try {
+                                        JsonNode root = objectMapper.readTree(msg);
+                                        String type = root.get("type").asText();
+
+                                        System.out.println("host received: " + msg);
+
+                                        if (type.equals("created-room")) {
+                                            // 방 생성 확인
+                                            Assertions.assertEquals(roomId, root.get("payload").get("roomId").asLong());
+                                        } else if (type.equals("room-users")) {
+                                            // 참가자 목록 갱신
+
+                                            if (root.get("payload").size() == 1) {
+                                                quitReceived.set(true);
+
+                                                JsonNode payloadNode = root.get("payload");
+                                                Assertions.assertNotNull(payloadNode);
+                                            }
+
+                                        } else if (type.equals("quit-success")) {
+                                            // 방장에게 quit-success가 오면 안됨
+                                            Assertions.fail("Host should not receive quit-success for other user");
+                                        }
+                                    } catch (JsonProcessingException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .takeUntil(msg -> quitReceived.get())
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+        Thread.sleep(1000);
+
+        // 유저N: 방 참가 후 일정 시간 뒤 퇴장
+        client.execute(
+                URI.create(user1Uri),
+                session -> {
+                    ObjectNode joinPayload = objectMapper.createObjectNode();
+                    joinPayload.put("roomId", roomId);
+                    ObjectNode joinRequest = objectMapper.createObjectNode();
+                    joinRequest.put("type", "join");
+                    joinRequest.set("payload", joinPayload);
+
+                    // 참가 후 1초 뒤 퇴장
+                    return session.send(Mono.just(session.textMessage(joinRequest.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> {
+                                        try {
+                                            JsonNode root = objectMapper.readTree(msg);
+                                            if (root.get("type").asText().equals("joined-room")) {
+                                                // 참가 성공 후 1초 뒤 퇴장 요청
+                                                Thread.sleep(1000);
+                                                ObjectNode quitPayload = objectMapper.createObjectNode();
+                                                quitPayload.put("roomId", roomId);
+                                                ObjectNode quitRequest = objectMapper.createObjectNode();
+                                                quitRequest.put("type", "quit");
+                                                quitRequest.set("payload", quitPayload);
+                                                session.send(Mono.just(session.textMessage(quitRequest.toString()))).subscribe();
+                                            }
+                                        } catch (Exception e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    })
+                                    .filter(msg -> {
+                                        try {
+                                            return objectMapper.readTree(msg).get("type").asText().equals("quit-success");
+                                        } catch (Exception e) { return false; }
+                                    })
+                                    .doOnNext(msg -> {
+                                        // 유저N이 quit-success를 받음
+                                        System.out.println("User1 received quit-success: " + msg);
+                                    })
+                                    .take(1)
+                            )
+                            .then();
+                }
+        ).block();
+
+        // 방장 스레드가 유저N의 퇴장 알림을 받았는지 확인
+        hostThread.join();
+        Assertions.assertTrue(quitReceived.get(), "Host did not receive user-quit message");
+
+        // 유저N 퇴장 후 2초 뒤에도 방이 살아있는지 확인
+        Thread.sleep(2000);
+        Room room = redisTemplateForRooms.opsForValue().get("room:" + roomId).block();
+        Assertions.assertNotNull(room, "Room should still exist after user1 quit");
+        Assertions.assertEquals(1, room.getUsers().size());
+        Assertions.assertEquals(hostUser.getId(), room.getUsers().get(0).getId());
+    }
+
+    @Test
+    void testUserReceivesQuitSuccessWhenHostQuits() throws Exception {
+        Long roomId = roomIdGenerator.incrementAndGet();
+
+        // 방장(Host)와 유저N 생성 및 저장
+        User hostUser = testUser;
+
+        User user1 = new User();
+        user1.setUsername("user1");
+        user1.setEmail("user1@example.com");
+        user1.setPassword("password1");
+        userRepository.save(user1);
+
+        String hostUri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(hostUser.getId());
+        String user1Uri = "ws://localhost:" + port + "/ws/room?token=" + jwtProvider.generateToken(user1.getId());
+
+        AtomicBoolean quitSuccessReceived = new AtomicBoolean(false);
+
+        // 1. 방장 스레드: 방 생성, 2초 뒤 퇴장
+        Thread hostThread = new Thread(() -> {
+            client.execute(
+                    URI.create(hostUri),
+                    session -> {
+                        ObjectNode payload = objectMapper.createObjectNode();
+                        payload.put("capacity", 4);
+                        payload.put("turnTime", 30);
+                        payload.put("roomName", "testRoom");
+
+                        ObjectNode request = objectMapper.createObjectNode();
+                        request.put("type", "create");
+                        request.set("payload", payload);
+                        session.send(Mono.just(session.textMessage(request.toString()))).subscribe();
+
+                        // 2초 뒤 퇴장
+                        return session.receive()
+                                .map(WebSocketMessage::getPayloadAsText)
+                                .doOnNext(msg -> {
+                                    try {
+                                        JsonNode root = objectMapper.readTree(msg);
+                                        String type = root.get("type").asText();
+                                        if (type.equals("created-room")) {
+                                            // 방 생성 확인
+                                            Assertions.assertEquals(roomId, root.get("payload").get("roomId").asLong());
+                                        } else if (type.equals("room-users")) {
+
+                                            System.out.println("host user is received room-users: " + msg);
+
+                                            // 유저가 조인하면 2초 뒤 퇴장
+                                            Thread.sleep(2000);
+                                            ObjectNode quitPayload = objectMapper.createObjectNode();
+                                            quitPayload.put("roomId", roomId);
+                                            ObjectNode quitRequest = objectMapper.createObjectNode();
+                                            quitRequest.put("type", "quit");
+                                            quitRequest.set("payload", quitPayload);
+                                            session.send(Mono.just(session.textMessage(quitRequest.toString()))).subscribe();
+                                        }
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                                .then();
+                    }
+            ).block();
+        });
+
+        hostThread.start();
+        Thread.sleep(1000);
+
+        // 2. 유저N: 방 참가 후 quit-success 메시지 수신 대기
+        client.execute(
+                URI.create(user1Uri),
+                session -> {
+                    ObjectNode joinPayload = objectMapper.createObjectNode();
+                    joinPayload.put("roomId", roomId);
+                    ObjectNode joinRequest = objectMapper.createObjectNode();
+                    joinRequest.put("type", "join");
+                    joinRequest.set("payload", joinPayload);
+
+                    return session.send(Mono.just(session.textMessage(joinRequest.toString())))
+                            .thenMany(session.receive()
+                                    .map(WebSocketMessage::getPayloadAsText)
+                                    .doOnNext(msg -> {
+                                        try {
+                                            JsonNode root = objectMapper.readTree(msg);
+                                            if (root.get("type").asText().equals("quit-success")) {
+                                                quitSuccessReceived.set(true);
+                                                System.out.println("User1 received quit-success: " + msg);
+                                            }
+                                        } catch (Exception e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    })
+                                    .filter(msg -> {
+                                        try {
+                                            return objectMapper.readTree(msg).get("type").asText().equals("quit-success");
+                                        } catch (Exception e) { return false; }
+                                    })
+                                    .take(1)
+                            )
+                            .then();
+                }
+        ).block();
+
+        hostThread.join();
+
+        // quit-success 메시지 수신 확인
+        Assertions.assertTrue(quitSuccessReceived.get(), "User1 did not receive quit-success when host quit");
+
+        // 방이 삭제되었는지 확인 (방장 퇴장 시 방 삭제가 맞다면)
+        Room room = redisTemplateForRooms.opsForValue().get("room:" + roomId).block();
+        Assertions.assertNull(room, "Room should be deleted after host quit");
     }
 
 }

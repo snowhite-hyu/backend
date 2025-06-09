@@ -37,6 +37,11 @@ class GameTest {
     }
 
     @Test
+    void useRockfallCardSuccessTest() {
+
+    }
+
+    @Test
     void joinPlayerAndReturnRemain() {
         int remain1 = game.joinPlayerAndReturnRemain(1L);
         assertEquals(2, remain1);
