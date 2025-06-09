@@ -78,7 +78,7 @@ public class Game {
     }
 
     public void clearField() {
-        this.field = new Integer[7][9][2];
+        this.field = new Integer[7][9][4];
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
                 field[i][j][0] = -1;    // -1: 카드 x
@@ -193,11 +193,34 @@ public class Game {
     }
 
     public void showCard(int row, int column) {
-        field[row][column][2] = 1;
+        field[row][column][2] = 0;
     }
 
     public int getCardId(int row, int column) {
         return field[row][column][0];
+    }
+
+    public void connectAdjacentFromStart(int row, int column) {
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
+        for (int[] d : directions) {
+            int adjacentRow = row + d[0];
+            int adjacentColumn = row + d[1];
+
+            // 범위, 카드 존재 여부 확인
+            if (adjacentRow < 0 || adjacentRow >= field.length || adjacentColumn < 0 || adjacentColumn >= field[0].length) continue;
+            if (field[adjacentRow][adjacentColumn][0] == -1) continue;
+
+            field[adjacentRow][adjacentColumn][3] = 1;
+        }
+    }
+
+    public void rotate(int row, int column) {
+        if (field[row][column][1] == 0) field[row][column][0] = 1;
+        else field[row][column][1] = 0;
+    }
+
+    public void connectFromStart(int row, int column) {
+        field[row][column][3] = 1;
     }
 
     public void disconnectFromStart(int row, int column) {
@@ -251,31 +274,37 @@ public class Game {
         return hasAdjacent && stillConnected;
     }
 
-    // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
-    public boolean placePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isRotated) {
-        placeCard(row, column, cardId, isRotated, 0, 1);
-        findPlayer(playerId).get().dropCard(cardId);
-
+    @JsonIgnore
+    public boolean checkDwarfWon() {
         int goldRow = 1;
         int goldColumn = 8;
 
-        if (field[3][8][0] == 63) {
-            goldRow = 3;
-        }
-        if (field[5][8][0] == 63) {
-            goldRow = 5;
-        }
+        if (field[3][8][0] == 63) goldRow = 3;
+        if (field[5][8][0] == 63) goldColumn = 5;
 
-        if ((row == goldRow - 1 && column == goldColumn)
-                || (row == goldRow + 1 && column == goldColumn)
-                || (row == goldRow && column == goldColumn - 1)
-                || (row == goldRow && column == goldColumn + 1)
-        ) {
-            return true;
-        }
+        return field[goldRow][goldColumn][3] == 1;
+    }
 
+    // Path Card 사용 후 핸드에서 제거, 목적지 근처 여부 리턴
+    public boolean placePathCardAndCheckAdjacentToDestination(long playerId, int cardId, int row, int column, int isRotated) {
+        placeCard(row, column, cardId, isRotated, 0, 1);
+        connectAdjacentFromStart(row, column);
+        findPlayer(playerId).get().dropCard(cardId);
+
+        Set<Integer> destinationCardIds = Set.of(61, 62, 63);
+
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
+        for (int[] d : directions) {
+            int adjacentRow = row + d[0];
+            int adjacentColumn = column + d[1];
+
+            if (adjacentRow < 0 || adjacentRow >= field.length || adjacentColumn < 0 || adjacentColumn >= field[0].length) continue;
+            if (field[adjacentRow][adjacentColumn][0] == -1) continue;
+            if (destinationCardIds.contains(field[adjacentRow][adjacentColumn][0])) {
+                return true;
+            }
+        }
         return false;
-
     }
 
     @JsonIgnore

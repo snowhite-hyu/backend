@@ -26,29 +26,29 @@ public class PathCard extends Card{
         this.middle_open = middle_open;
     }
 
-    public boolean isUpperOpened(int flipped) {
-        if (flipped == 1) {
+    public boolean isUpperOpened(int isRotated) {
+        if (isRotated == 1) {
             return down_open;
         }
         return up_open;
     }
 
-    public boolean isLowerOpened(int flipped) {
-        if (flipped == 1) {
+    public boolean isLowerOpened(int isRotated) {
+        if (isRotated == 1) {
             return up_open;
         }
         return down_open;
     }
 
-    public boolean isLeftOpened(int flipped) {
-        if (flipped == 1) {
+    public boolean isLeftOpened(int isRotated) {
+        if (isRotated == 1) {
             return right_open;
         }
         return left_open;
     }
 
-    public boolean isRightOpened(int flipped) {
-        if (flipped == 1) {
+    public boolean isRightOpened(int isRotated) {
+        if (isRotated == 1) {
            return left_open;
         }
         return right_open;

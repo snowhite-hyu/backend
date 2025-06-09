@@ -2,6 +2,7 @@ package com.snowhite.server.service;
 
 import com.snowhite.server.domain.entity.ActionCard;
 import com.snowhite.server.domain.entity.Card;
+import com.snowhite.server.domain.entity.DestinationCard;
 import com.snowhite.server.domain.entity.PathCard;
 import com.snowhite.server.domain.enums.CardType;
 import com.snowhite.server.domain.enums.PlayerRole;
@@ -407,17 +408,39 @@ public class GameService {
 
                                 boolean isDwarfWon = false;
                                 boolean isRoundFinished = false;
-                                boolean isGameFinished = false;
+                                boolean shouldRevealDestination = false;
                                 FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated, 0);
-
+                                List<FieldResponse> destinationResponseList = new ArrayList<>(); // 목적지 공개 필요 시 사용
                                 // 카드를 놓을 수 없으면 바로 리턴
-                                if (!realIsPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
-                                // 굴 카드 배치 후 금 목적지 도달 여부
-                                if (game.placePathCardAndReturnRoundFinished(playerId, cardId, row, column, isRotated)) {
+                                if (!realIsPossible)
+                                    return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
+
+                                // 굴 카드 배치 후 목적지 주변 도달 여부
+                                if (game.placePathCardAndCheckAdjacentToDestination(playerId, cardId, row, column, isRotated)) {
+                                    // 굴 카드의 길이 목적지 카드로 향한 경우 목적지 카드의 좌표 가져옴
+                                    List<PositionDTO> destinationPositionList = getDestinationPositionsToReveal(game, cardId, row, column, isRotated)
+                                            .block();
+                                    for (PositionDTO destinationPosition : destinationPositionList) {
+                                        shouldRevealDestination = true;
+                                        int rowToReveal = destinationPosition.row();
+                                        int columnToReveal = destinationPosition.column();
+                                        int cardIdToReveal = game.getCardId(rowToReveal, columnToReveal);
+                                        int isRotatedToReveal = game.isRotated(rowToReveal, columnToReveal);
+                                        int isFlippedToReveal = game.isFlipped(rowToReveal, columnToReveal);
+                                        // 목적지 카드를 배치한 굴 카드와 연결되게 회전
+                                        rotateDestinationCardToConnect(game, cardId, row, column, isRotated, rowToReveal, columnToReveal).block();
+                                        // 목적지 카드 공개
+                                        game.showCard(rowToReveal, columnToReveal);
+                                        // 목적지 카드 시작점과 연결
+                                        game.connectFromStart(rowToReveal, columnToReveal);
+                                        destinationResponseList.add(FieldResponse.of(cardIdToReveal, rowToReveal, columnToReveal, isRotatedToReveal, isFlippedToReveal));
+                                    }
+                                }
+
+                                if (game.checkDwarfWon()) {
                                     isDwarfWon = true;
                                     isRoundFinished = true;
                                 }
-
                                 game.drawAndGiveCardToPlayer(playerId);
                                 if (game.nextTurnAndReturnRoundFinished()) {
                                     isRoundFinished = true;
@@ -441,10 +464,12 @@ public class GameService {
 
                                         return setGameToRedis(gameId, game)
                                                 .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                        shouldRevealDestination,
                                                         fieldResponse,
                                                         secretPlayerResponse,
                                                         publicPlayerResponse,
-                                                        RoundFinishedResponse.of(PlayerRole.DWARF, playerList)
+                                                        RoundFinishedResponse.of(PlayerRole.DWARF, playerList),
+                                                        destinationResponseList
                                                 ));
                                     }
                                     // 사보타지가 이긴 경우
@@ -459,10 +484,12 @@ public class GameService {
 
                                     return setGameToRedis(gameId, game)
                                             .thenReturn(UsePathCardResultDTO.forRoundFinishedResult(
+                                                    shouldRevealDestination,
                                                     fieldResponse,
                                                     secretPlayerResponse,
                                                     publicPlayerResponse,
-                                                    RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList)
+                                                    RoundFinishedResponse.of(PlayerRole.SABOTEUR, playerList),
+                                                    destinationResponseList
                                             ));
                                 }
 
@@ -470,12 +497,112 @@ public class GameService {
                                 // 라운드가 끝나지 않았으면 역할 공개는 불필요
                                 return setGameToRedis(gameId, game)
                                         .thenReturn(UsePathCardResultDTO.forNormalResult(
+                                                shouldRevealDestination,
                                                 turnChangedResponse,
                                                 fieldResponse,
                                                 secretPlayerResponse,
-                                                publicPlayerResponse
+                                                publicPlayerResponse,
+                                                destinationResponseList
                                         ));
                             });
+                });
+    }
+
+    private Mono<Void> rotateDestinationCardToConnect(Game game, int pathCardId, int pathCardRow, int pathCardColumn, int isRotated, int destinationCardRow, int destinationCardColumn) {
+        int destinationCardId = game.getCardId(destinationCardRow, destinationCardColumn);
+
+        Mono<Card> pathCardMono = cardService.findCardByCardId(pathCardId);
+        Mono<Card> destinationCardMono = cardService.findCardByCardId(destinationCardId);
+
+        return Mono.zip(pathCardMono, destinationCardMono)
+                .doOnNext(tuple -> {
+                    PathCard pathCard = (PathCard) tuple.getT1();
+                    DestinationCard destinationCard = (DestinationCard) tuple.getT2();
+
+                    int rowDiff = destinationCardRow - pathCardRow;
+                    int columnDiff = destinationCardColumn - pathCardColumn;
+
+                    boolean needToRotateDestinationCard = true;
+
+                    if (rowDiff == -1 && columnDiff == 0) { // 목적지 카드가 위
+                        if (pathCard.isUpperOpened(isRotated) && destinationCard.isDown_open()) {
+                            needToRotateDestinationCard = false;
+                        }
+                    } else if (rowDiff == 1 && columnDiff == 0) { // 목적지 카드가 아래
+                        if (pathCard.isLowerOpened(isRotated) && destinationCard.isUp_open()) {
+                            needToRotateDestinationCard = false;
+                        }
+                    } else if (rowDiff == 0 && columnDiff == -1) { // 목적지 카드가 왼쪽
+                        if (pathCard.isLeftOpened(isRotated) && destinationCard.isRight_open()) {
+                            needToRotateDestinationCard = false;
+                        }
+                    } else if (rowDiff == 0 && columnDiff == 1) { // 목적지 카드가 오른쪽
+                        if (pathCard.isRightOpened(isRotated) && destinationCard.isLeft_open()) {
+                            needToRotateDestinationCard = false;
+                        }
+                    }
+
+                    if (needToRotateDestinationCard) {
+                        game.rotate(destinationCardRow, destinationCardColumn);
+                    }
+                })
+                .then();
+    }
+
+    private Mono<List<PositionDTO>> getDestinationPositionsToReveal(Game game, int cardId, int row, int column, int isRotated) {
+        Set<Integer> destinationIds = Set.of(61, 62, 63);
+
+        List<PositionDTO> destinationPositionList = new ArrayList<>();
+        return cardService.findCardByCardId(cardId)
+                .map(card -> {
+                    PathCard pathCard = (PathCard) card;
+
+                    boolean upperOpened = pathCard.isUpperOpened(isRotated);
+                    boolean lowerOpened = pathCard.isLowerOpened(isRotated);
+                    boolean leftOpened = pathCard.isLeftOpened(isRotated);
+                    boolean rightOpened = pathCard.isRightOpened(isRotated);
+                    boolean middleOpened = pathCard.isMiddle_open();
+
+                    if (!middleOpened) {
+                        return destinationPositionList;
+                    }
+                    if (upperOpened) {
+                        if (row > 0) {
+                            int upperCardId = game.getCardId(row - 1, column);
+                            if (destinationIds.contains(upperCardId) && game.isFlipped(row - 1, column) == 1) {
+                                destinationPositionList.add(PositionDTO.of(row - 1, column));
+                            }
+                        }
+                    }
+
+                    if (lowerOpened) {
+                        if (row < game.getFieldRowLength() - 1) {
+                            int lowerCardId = game.getCardId(row + 1, column);
+                            if (destinationIds.contains(lowerCardId) && game.isFlipped(row + 1, column) == 1) {
+                                destinationPositionList.add(PositionDTO.of(row + 1, column));
+                            }
+                        }
+                    }
+
+                    if (leftOpened) {
+                        if (column > 0) {
+                            int leftCardId = game.getCardId(row, column - 1);
+                            if (destinationIds.contains(leftCardId) && game.isFlipped(row, column - 1) == 1) {
+                                destinationPositionList.add(PositionDTO.of(row, column - 1));
+                            }
+                        }
+                    }
+
+                    if (rightOpened) {
+                        if (column < game.getFieldColumnLength() - 1) {
+                            int rightCardId = game.getCardId(row, column + 1);
+                            if (destinationIds.contains(rightCardId) && game.isFlipped(row, column + 1) == 1) {
+                                destinationPositionList.add(PositionDTO.of(row, column + 1));
+                            }
+                        }
+                    }
+
+                    return destinationPositionList;
                 });
     }
 
@@ -572,26 +699,7 @@ public class GameService {
                     }
                     // 다 모아서 전부 연결 가능한 경우 true
                     return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
-                            .map(results -> {
-                                boolean isPlaceable = results.getT1() && results.getT2() && results.getT3() && results.getT4();
-
-                                if (isPlaceable) {
-                                    // 굴 카드를 놓을 수 있는 경우 주변에 목적지 카드가 있는지 검사하고 공개
-                                    if (row > 0 && destinationCardIds.contains(field[row - 1][column][0])) {
-                                        game.showCard(row - 1, column);
-                                    }
-                                    if (row < field.length - 1 && destinationCardIds.contains(field[row + 1][column][0])) {
-                                        game.showCard(row + 1, column);
-                                    }
-                                    if (column > 0 && destinationCardIds.contains(field[row][column - 1][0])) {
-                                        game.showCard(row, column - 1);
-                                    }
-                                    if (column < field[0].length - 1 && destinationCardIds.contains(field[row][column + 1][0])) {
-                                        game.showCard(row, column + 1);
-                                    }
-                                }
-                                return isPlaceable;
-                            });
+                            .map(results -> results.getT1() && results.getT2() && results.getT3() && results.getT4());
                 });
     }
 
