@@ -246,11 +246,16 @@ public class GameService {
 
                         game.removeCard(row, column);
                         player.removeCard(cardId);
+
+                        // 시작점과 연결여부 초기화
+                        game.refreshFieldConnectedFromStart();
+
                         log.info("[Rockfall] 카드 제거 완료 - cardId: {}, 위치: ({}, {})", cardId, row, column);
                         game.drawAndGiveCardToPlayer(playerId);
                         log.info("[Rockfall] 카드 한장 가져오기");
 
-                        FieldResponse fieldResponse = FieldResponse.of(-1, row, column, game.getField()[row][column][1]);
+
+                        FieldResponse fieldResponse = FieldResponse.of(-1, row, column, game.isRotated(row, column), game.isFlipped(row, column));
                         SecretPlayerResponse secretPlayerResponse = SecretPlayerResponse.from(game.findPlayer(playerId).get());
                         PublicPlayerResponse publicPlayerResponse = PublicPlayerResponse.from(game.findPlayer(playerId).get());
 
@@ -323,8 +328,7 @@ public class GameService {
                                 log.warn("[Map] 해당 위치에 카드가 없거나 사용 불가한 위치 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.BAD_REQUEST));
                             }
-                            // TODO: field 변경에 따른 isFlipped 인덱싱 수정
-                            if (game.isFlipped(row, column)) {
+                            if (game.isFlipped(row, column) == 1) {
                                 log.warn("[Map] 해당 위치에 카드가 이미 공개됨 - row: {}, column: {}", row, column);
                                 return Mono.error(new BusinessException(WsErrorStatus.CANNOT_USE_CARD));
                             }
@@ -387,7 +391,7 @@ public class GameService {
         }
     }
 
-    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isFlipped) {
+    public Mono<UsePathCardResultDTO> processUsePathCard(long gameId, long playerId, int cardId, int row, int column, int isRotated) {
 
         return getGameByGameId(gameId)
                 .flatMap(game -> {
@@ -395,7 +399,7 @@ public class GameService {
                             .map(Player::hasBrokenTool)
                             .orElse(true);
 
-                    return isPossibleToPlacePathCard(game, cardId, row, column, isFlipped)
+                    return isPossibleToPlacePathCard(game, cardId, row, column, isRotated)
                             .flatMap(isPossible -> {
 
                                 // 망가진 도구가 없음 + 굴 카드 놓을 수 있는 자리여야 배치 가능
@@ -404,12 +408,12 @@ public class GameService {
                                 boolean isDwarfWon = false;
                                 boolean isRoundFinished = false;
                                 boolean isGameFinished = false;
-                                FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isFlipped);
+                                FieldResponse fieldResponse = FieldResponse.of(cardId, row, column, isRotated, 0);
 
                                 // 카드를 놓을 수 없으면 바로 리턴
                                 if (!realIsPossible) return Mono.just(UsePathCardResultDTO.forPlacePathCardFailedResult(fieldResponse));
                                 // 굴 카드 배치 후 금 목적지 도달 여부
-                                if (game.usePathCardAndReturnRoundFinished(playerId, cardId, row, column, isFlipped)) {
+                                if (game.placePathCardAndReturnRoundFinished(playerId, cardId, row, column, isRotated)) {
                                     isDwarfWon = true;
                                     isRoundFinished = true;
                                 }
@@ -475,7 +479,7 @@ public class GameService {
                 });
     }
 
-    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int flipped) {
+    public Mono<Boolean> isPossibleToPlacePathCard(Game game, int cardIdToPlace, int row, int column, int isRotated) {
         Integer[][][] field = game.getField();
         return cardService.findCardByCardId(cardIdToPlace)
                 .map(card -> (PathCard) card)
@@ -486,22 +490,24 @@ public class GameService {
                     Mono<Boolean> rightCheck = Mono.just(true);
 
                     boolean hasAdjacent = false;
+                    boolean isConnectedFromStart = false;
 
                     Set<Integer> destinationCardIds = Set.of(61, 62, 63);
 
                     // 위쪽 검사
                     if (row > 0 && field[row - 1][column][0] != -1) { // 놓을 자리가 맨 위가 아니고 위에 카드가 있는 경우
                         hasAdjacent = true;
+                        if (field[row - 1][column][3] == 1) isConnectedFromStart = true;
                         int upperCardId = field[row - 1][column][0];
-                        int upperCardFlipped = field[row - 1][column][1];
+                        int upperCardRotated = field[row - 1][column][1];
                         if (!destinationCardIds.contains(upperCardId)) {
                             upperCheck = cardService.findCardByCardId(upperCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isUpperOpened(flipped));
+                                            return Mono.just(cardToPlace.isUpperOpened(isRotated));
                                         }
                                         PathCard upperCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isUpperOpened(flipped) == upperCard.isLowerOpened(upperCardFlipped));
+                                        return Mono.just(cardToPlace.isUpperOpened(isRotated) == upperCard.isLowerOpened(upperCardRotated));
                                     });
                         }
                     }
@@ -509,16 +515,17 @@ public class GameService {
                     // 아래쪽 검사
                     if (row < field.length - 1 && field[row + 1][column][0] != -1) { // 놓을 자리가 맨 아래가 아니고 아래에 카드가 있는 경우
                         hasAdjacent = true;
+                        if (field[row + 1][column][3] == 1) isConnectedFromStart = true;
                         int lowerCardId = field[row + 1][column][0];
-                        int lowerCardFlipped = field[row + 1][column][1];
+                        int lowerCardRotated = field[row + 1][column][1];
                         if (!destinationCardIds.contains(lowerCardId)) {
                             lowerCheck = cardService.findCardByCardId(lowerCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isLowerOpened(flipped));
+                                            return Mono.just(cardToPlace.isLowerOpened(isRotated));
                                         }
                                         PathCard lowerCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isLowerOpened(flipped) == lowerCard.isUpperOpened(lowerCardFlipped));
+                                        return Mono.just(cardToPlace.isLowerOpened(isRotated) == lowerCard.isUpperOpened(lowerCardRotated));
                                     });
                         }
                     }
@@ -526,16 +533,17 @@ public class GameService {
                     // 왼쪽 카드 검사
                     if (column > 0 && field[row][column - 1][0] != -1) { // 놓을 자리가 맨 왼쪽이 아니고 왼쪽에 카드가 있는 경우
                         hasAdjacent = true;
+                        if (field[row][column - 1][3] == 1) isConnectedFromStart = true;
                         int leftCardId = field[row][column - 1][0];
-                        int leftCardFlipped = field[row][column - 1][1];
+                        int leftCardRotated = field[row][column - 1][1];
                         if (!destinationCardIds.contains(leftCardId)) {
                             leftCheck = cardService.findCardByCardId(leftCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isLeftOpened(flipped));
+                                            return Mono.just(cardToPlace.isLeftOpened(isRotated));
                                         }
                                         PathCard leftCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isLeftOpened(flipped) == leftCard.isRightOpened(leftCardFlipped));
+                                        return Mono.just(cardToPlace.isLeftOpened(isRotated) == leftCard.isRightOpened(leftCardRotated));
                                     });
                         }
                     }
@@ -543,28 +551,46 @@ public class GameService {
                     // 오른쪽 카드 검사
                     if (column < field[0].length - 1 && field[row][column + 1][0] != -1) { // 놓을 자리가 맨 오른쪽이 아니고 오른쪽에 카드가 있는 경우
                         hasAdjacent = true;
+                        if (field[row][column + 1][3] == 1) isConnectedFromStart = true;
                         int rightCardId = field[row][column + 1][0];
-                        int rightCardFlipped = field[row][column + 1][1];
+                        int rightCardRotated = field[row][column + 1][1];
                         if (!destinationCardIds.contains(rightCardId)) {
                             rightCheck = cardService.findCardByCardId(rightCardId)
                                     .flatMap(card -> {
                                         if (card.getType() == CardType.START) {
-                                            return Mono.just(cardToPlace.isRightOpened(flipped));
+                                            return Mono.just(cardToPlace.isRightOpened(isRotated));
                                         }
                                         PathCard rightCard = (PathCard) card;
-                                        return Mono.just(cardToPlace.isRightOpened(flipped) == rightCard.isLeftOpened(rightCardFlipped));
+                                        return Mono.just(cardToPlace.isRightOpened(isRotated) == rightCard.isLeftOpened(rightCardRotated));
                                     });
                         }
                     }
 
-                    // 상하좌우 카드가 없으면 배치 불가
-                    if (!hasAdjacent) {
+                    // 상하좌우 카드가 없거나 시작점으로부터 연결이 불가능하면 배치 불가
+                    if (!hasAdjacent || !isConnectedFromStart) {
                         return Mono.just(false);
                     }
                     // 다 모아서 전부 연결 가능한 경우 true
                     return Mono.zip(upperCheck, lowerCheck, leftCheck, rightCheck)
                             .map(results -> {
-                                return results.getT1() && results.getT2() && results.getT3() && results.getT4();
+                                boolean isPlaceable = results.getT1() && results.getT2() && results.getT3() && results.getT4();
+
+                                if (isPlaceable) {
+                                    // 굴 카드를 놓을 수 있는 경우 주변에 목적지 카드가 있는지 검사하고 공개
+                                    if (row > 0 && destinationCardIds.contains(field[row - 1][column][0])) {
+                                        game.showCard(row - 1, column);
+                                    }
+                                    if (row < field.length - 1 && destinationCardIds.contains(field[row + 1][column][0])) {
+                                        game.showCard(row + 1, column);
+                                    }
+                                    if (column > 0 && destinationCardIds.contains(field[row][column - 1][0])) {
+                                        game.showCard(row, column - 1);
+                                    }
+                                    if (column < field[0].length - 1 && destinationCardIds.contains(field[row][column + 1][0])) {
+                                        game.showCard(row, column + 1);
+                                    }
+                                }
+                                return isPlaceable;
                             });
                 });
     }

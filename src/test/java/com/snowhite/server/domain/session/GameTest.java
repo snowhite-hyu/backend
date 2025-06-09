@@ -103,10 +103,10 @@ class GameTest {
         assertFalse(player3.hasState(PlayerState.BROKEN_LANTERN));
 
         // field 조작
-        game.placeCard(3, 0, 5, 0);
-        game.placeCard(1, 8, 11, 0);
-        game.placeCard(3, 8, 12, 0);
-        game.placeCard(5, 8, 13, 0);
+        game.placeCard(3, 0, 5, 0, 0, 0);
+        game.placeCard(1, 8, 11, 0, 0, 0);
+        game.placeCard(3, 8, 12, 0, 0, 0);
+        game.placeCard(5, 8, 13, 0, 0, 0);
 
         // player 상태 조작
         player1.addPlayerState(PlayerState.BROKEN_PICKAXE);

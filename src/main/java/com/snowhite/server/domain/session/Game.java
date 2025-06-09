@@ -28,7 +28,7 @@ public class Game {
         joinedPlayerIds = new ArrayList<>();
         round = 0;
         gameState = GameState.WAITING;
-        field = new Integer[7][9][2];
+        field = new Integer[7][9][4];
         deck = new ArrayList<>();
         goldCards = new ArrayList<>();
         currentTurnPlayerId = 0;
@@ -82,7 +82,9 @@ public class Game {
         for (int i = 0; i < 7; i++) {
             for (int j = 0; j < 9; j++) {
                 field[i][j][0] = -1;    // -1: 카드 x
-                field[i][j][1] = 0; // isflipped
+                field[i][j][1] = 0; // isRotated - 0: 카드 그대로, 1: 카드 돌아감
+                field[i][j][2] = 0; // isFlipped - 0: 카드 보임, 1: 카드 안보임
+                field[i][j][3] = 0; // isConnectedFromStart - 0: 카드 출발지와 연결 안됨, 1: 카드 출발지와 연결됨
             }
         }
     }
@@ -182,15 +184,76 @@ public class Game {
         return deck.isEmpty() && handsEmpty;
     }
 
-    public int placeCard(int row, int column, int cardId, int isFlipped) {
+    public int placeCard(int row, int column, int cardId, int isRotated, int isFlipped, int isConnectedFromStart) {
         field[row][column][0] = cardId;
-        field[row][column][1] = isFlipped;
+        field[row][column][1] = isRotated;
+        field[row][column][2] = isFlipped;
+        field[row][column][3] = isConnectedFromStart;
         return cardId;
     }
 
+    public void showCard(int row, int column) {
+        field[row][column][2] = 1;
+    }
+
+    public int getCardId(int row, int column) {
+        return field[row][column][0];
+    }
+
+    public void disconnectFromStart(int row, int column) {
+        field[row][column][3] = 0;
+    }
+
+    public boolean isConnectedFromStart(int row, int column) {
+        return field[row][column][3] == 1;
+    }
+
+    @JsonIgnore
+    public int getFieldRowLength() {
+        return field.length;
+    }
+
+    @JsonIgnore
+    public int getFieldColumnLength() {
+        return field[0].length;
+    }
+
+    public boolean isStillConnectedFromStart(int row, int column) {
+
+        boolean stillConnected = false;
+        boolean hasAdjacent = false;
+
+        if (row > 0 && field[row - 1][column][0] != -1) {
+            hasAdjacent = true;
+            if (field[row - 1][column][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (row < field.length - 1 && field[row + 1][column][0] != -1) {
+            hasAdjacent = true;
+            if (field[row + 1][column][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (column > 0 && field[row][column - 1][0] != -1) {
+            hasAdjacent = true;
+            if (field[row][column - 1][3] == 1) {
+                stillConnected = true;
+            }
+        }
+        if (column < field[0].length - 1 && field[row][column + 1][0] != -1) {
+            hasAdjacent = true;
+            if (field[row][column + 1][3] == 1) {
+                stillConnected = true;
+            }
+        }
+
+        return hasAdjacent && stillConnected;
+    }
+
     // Path Card 사용 후 핸드에서 제거, 금 목적지 도달 여부 리턴
-    public boolean usePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isFlipped) {
-        placeCard(row, column, cardId, isFlipped);
+    public boolean placePathCardAndReturnRoundFinished(long playerId, int cardId, int row, int column, int isRotated) {
+        placeCard(row, column, cardId, isRotated, 0, 1);
         findPlayer(playerId).get().dropCard(cardId);
 
         int goldRow = 1;
@@ -203,10 +266,11 @@ public class Game {
             goldRow = 5;
         }
 
-        if ((row == goldRow - 1 && column == goldColumn) ||
-                (row == goldRow + 1 && column == goldColumn) ||
-                (row == goldRow && column == goldColumn - 1) ||
-                (row == goldRow && column == goldColumn + 1)) {
+        if ((row == goldRow - 1 && column == goldColumn)
+                || (row == goldRow + 1 && column == goldColumn)
+                || (row == goldRow && column == goldColumn - 1)
+                || (row == goldRow && column == goldColumn + 1)
+        ) {
             return true;
         }
 
@@ -236,15 +300,17 @@ public class Game {
         cardIds.add(63);
         Collections.shuffle(cardIds);
 
-        placeCard(3, 0, 0, 0);
-        placeCard(1, 8, cardIds.get(0), 0);
-        placeCard(3, 8, cardIds.get(1), 0);
-        placeCard(5, 8, cardIds.get(2), 0);
+        placeCard(3, 0, 0, 0, 0, 1);
+        placeCard(1, 8, cardIds.get(0), 0, 1, 0);
+        placeCard(3, 8, cardIds.get(1), 0, 1, 0);
+        placeCard(5, 8, cardIds.get(2), 0, 1, 0);
     }
 
     public void removeCard(int row, int col) {
-        this.field[row][col][0] = -1;
-        this.field[row][col][1] = 0;
+        field[row][col][0] = -1;
+        field[row][col][1] = 0;
+        field[row][col][2] = 0;
+        field[row][col][3] = 0;
     }
 
     public void addCardsToDeck(List<Integer> cardIds) {
@@ -459,9 +525,53 @@ public class Game {
                 .toList();
     }
 
-    public boolean isFlipped(int row, int col) {
-        if (field[row][col][1] == 1) { return true; }
-        else { return false; }
+    public void refreshFieldConnectedFromStart() {
+        int rowLength = getFieldRowLength();
+        int columnLength = getFieldColumnLength();
+
+        // 모든 카드의 isConnectedFromStart 초기화
+        for (int r = 0; r < rowLength; r++) {
+            for (int c = 0; c < columnLength; c++) {
+                if (field[r][c][0] != -1) {
+                    field[r][c][3] = 0; // 연결 초기화
+                }
+            }
+        }
+
+        // 시작 카드부터 dfs 시작
+        dfsAndSetIsConnected(3, 0);
+    }
+
+    private void dfsAndSetIsConnected(int row, int column) {
+
+        if (row < 0 || row >= field.length || column < 0 || column >= field[0].length) return; // dfs 종료 조건
+        if (field[row][column][0] == -1 || field[row][column][3] == 1) return; // 카드가 없거나 이미 방문해서 연결 표시 했거나
+
+        field[row][column][3] = 1; // 연결 표시
+
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
+
+        for (int[] direction : directions) {
+            int adjacentRow = row + direction[0];
+            int adjacentColumn = column + direction[1];
+
+            // 범위 벗어나면 패스
+            if (adjacentRow < 0 || adjacentRow >= field.length || adjacentColumn < 0 || adjacentColumn >= field[0].length) continue;
+            // 카드 없으면 패스
+            if (field[adjacentRow][adjacentColumn][0] == -1) continue;
+
+            dfsAndSetIsConnected(adjacentRow, adjacentColumn);
+        }
+    }
+
+
+
+    public int isFlipped(int row, int col) {
+        return field[row][col][2];
+    }
+
+    public int isRotated(int row, int col) {
+        return field[row][col][1];
     }
 
     public Integer getPathCardIdAt(Integer row, Integer col) {
