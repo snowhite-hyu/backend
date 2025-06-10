@@ -472,19 +472,33 @@ public class Game {
         List<Player> saboteurPlayers = getSaboteurPlayers();
         List<Integer> goldCardsToDistribute = new ArrayList<>();
 
+        boolean winnerIsSaboteur = findPlayer(winnerPlayerId)
+                .map(Player::getPlayerRole)
+                .get()
+                .equals(PlayerRole.SABOTEUR);
+
         for (int i = 0; i < dwarfPlayers.size(); i++) {
             goldCardsToDistribute.add(goldCards.removeFirst());
         }
 
-        goldCardsToDistribute.sort(Collections.reverseOrder());
-        int maxGold = goldCardsToDistribute.removeFirst();
-        Collections.shuffle(goldCardsToDistribute);
 
-        for (Player dwarfPlayer : dwarfPlayers) {
-            if (dwarfPlayer.getPlayerId() == winnerPlayerId) {
-                dwarfPlayer.addGold(maxGold);
-                result.put(winnerPlayerId, maxGold);
-            } else {
+        if (!winnerIsSaboteur) {
+            goldCardsToDistribute.sort(Collections.reverseOrder());
+            int maxGold = goldCardsToDistribute.removeFirst();
+            Collections.shuffle(goldCardsToDistribute);
+
+            for (Player dwarfPlayer : dwarfPlayers) {
+                if (dwarfPlayer.getPlayerId() == winnerPlayerId) {
+                    dwarfPlayer.addGold(maxGold);
+                    result.put(winnerPlayerId, maxGold);
+                } else {
+                    int goldToGive = goldCardsToDistribute.removeFirst();
+                    dwarfPlayer.addGold(goldToGive);
+                    result.put(dwarfPlayer.getPlayerId(), goldToGive);
+                }
+            }
+        } else {
+            for (Player dwarfPlayer : dwarfPlayers) {
                 int goldToGive = goldCardsToDistribute.removeFirst();
                 dwarfPlayer.addGold(goldToGive);
                 result.put(dwarfPlayer.getPlayerId(), goldToGive);
