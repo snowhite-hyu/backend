@@ -204,7 +204,7 @@ public class Game {
         int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 상하좌우
         for (int[] d : directions) {
             int adjacentRow = row + d[0];
-            int adjacentColumn = row + d[1];
+            int adjacentColumn = column + d[1];
 
             // 범위, 카드 존재 여부 확인
             if (adjacentRow < 0 || adjacentRow >= field.length || adjacentColumn < 0 || adjacentColumn >= field[0].length) continue;
