@@ -289,6 +289,7 @@ public class Game {
     public boolean placePathCardAndCheckAdjacentToDestination(long playerId, int cardId, int row, int column, int isRotated, int isConnectedFromStart) {
         placeCard(row, column, cardId, isRotated, 0, isConnectedFromStart);
         connectAdjacentFromStart(row, column);
+        refreshFieldConnectedFromStart();
         findPlayer(playerId).get().dropCard(cardId);
 
         Set<Integer> destinationCardIds = Set.of(61, 62, 63);
