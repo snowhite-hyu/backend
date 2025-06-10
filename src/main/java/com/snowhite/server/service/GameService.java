@@ -143,8 +143,7 @@ public class GameService {
                     boolean isGameFinished = game.startNextRoundAndReturnGameFinished();
                     if (isGameFinished) {
                         Player winner = game.getWinnerPlayer();
-                        return deleteGameFromRedis(gameId)
-                                .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
+                        return Mono.just(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
                     }
                     GameResponse gameResponse = GameResponse.from(game);
                     List<SecretPlayerResponse> secretPlayerResponseList = game.getPlayers()
