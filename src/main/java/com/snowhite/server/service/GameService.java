@@ -143,7 +143,7 @@ public class GameService {
                     boolean isGameFinished = game.startNextRoundAndReturnGameFinished();
                     if (isGameFinished) {
                         Player winner = game.getWinnerPlayer();
-                        return deleteGameFromRedis(gameId)
+                        return setGameToRedis(gameId, game)
                                 .thenReturn(NextRoundResultDTO.forFinishGame(PublicPlayerResponse.from(winner)));
                     }
                     GameResponse gameResponse = GameResponse.from(game);
